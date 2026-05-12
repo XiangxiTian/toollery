@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "query": "Should I pack an umbrella for Shanghai tomorrow?",
+      "ground_truth_tool": "get_weather_forecast"
+    },
+    {
+      "query": "Find me a hotel in Tokyo for next weekend.",
+      "ground_truth_tool": "search_hotels"
+    },
+    {
+      "query": "Set up a calendar meeting with Alice at 3pm.",
+      "ground_truth_tool": "create_calendar_event"
+    },
+    {
+      "query": "Change 150 USD into CNY.",
+      "ground_truth_tool": "convert_currency"
+    },
+    {
+      "query": "Send Bob a note about the product review.",
+      "ground_truth_tool": "send_email"
+    },
+    {
+      "query": "Book a flight from Beijing to Singapore.",
+      "ground_truth_tool": "book_flight"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+# The reference implementation runs on the Python standard library.
+# Optional: install pypdf/pdfplumber only if you want to parse PDFs like the source article.

@@ -1,0 +1,87 @@
+{
+  "tools": [
+    {
+      "name": "get_weather_forecast",
+      "category": "weather",
+      "description": "get the weather forecast for a city and date",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string"},
+          "date": {"type": "string"}
+        },
+        "required": ["city"]
+      }
+    },
+    {
+      "name": "book_flight",
+      "category": "travel",
+      "description": "book a flight between origin and destination cities",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {"type": "string"},
+          "destination": {"type": "string"},
+          "date": {"type": "string"}
+        },
+        "required": ["origin", "destination"]
+      }
+    },
+    {
+      "name": "search_hotels",
+      "category": "travel",
+      "description": "search available hotels in a city for a stay period",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string"},
+          "check_in": {"type": "string"},
+          "check_out": {"type": "string"}
+        },
+        "required": ["city"]
+      }
+    },
+    {
+      "name": "send_email",
+      "category": "communication",
+      "description": "send an email message to a recipient",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "recipient": {"type": "string"},
+          "subject": {"type": "string"},
+          "body": {"type": "string"}
+        },
+        "required": ["recipient", "body"]
+      }
+    },
+    {
+      "name": "create_calendar_event",
+      "category": "calendar",
+      "description": "create a calendar event with title, time, and attendees",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string"},
+          "time": {"type": "string"},
+          "attendees": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["title", "time"]
+      }
+    },
+    {
+      "name": "convert_currency",
+      "category": "finance",
+      "description": "convert an amount of money from one currency to another",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "amount": {"type": "number"},
+          "from_currency": {"type": "string"},
+          "to_currency": {"type": "string"}
+        },
+        "required": ["amount", "from_currency", "to_currency"]
+      }
+    }
+  ]
+}

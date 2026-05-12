@@ -1,0 +1,292 @@
+{
+  "manual": [
+    {
+      "query": "I want to get the weather forecast for a city and date.",
+      "tool_name": "get_weather_forecast",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Help me with get weather forecast.",
+      "tool_name": "get_weather_forecast",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Find a tool for weather city type.",
+      "tool_name": "get_weather_forecast",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Can you handle weather city type using the right API?",
+      "tool_name": "get_weather_forecast",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I need get weather forecast with the required parameters.",
+      "tool_name": "get_weather_forecast",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Run something that can get the weather forecast for a city and date.",
+      "tool_name": "get_weather_forecast",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Which function should I call for weather city type?",
+      "tool_name": "get_weather_forecast",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Use the service related to weather city type.",
+      "tool_name": "get_weather_forecast",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I want to book a flight between origin and destination cities.",
+      "tool_name": "book_flight",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Help me with book flight.",
+      "tool_name": "book_flight",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Find a tool for origin destination type.",
+      "tool_name": "book_flight",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Can you handle origin destination type using the right API?",
+      "tool_name": "book_flight",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I need book flight with the required parameters.",
+      "tool_name": "book_flight",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Run something that can book a flight between origin and destination cities.",
+      "tool_name": "book_flight",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Which function should I call for origin destination type?",
+      "tool_name": "book_flight",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Use the service related to origin destination type.",
+      "tool_name": "book_flight",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I want to search available hotels in a city for a stay period.",
+      "tool_name": "search_hotels",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Help me with search hotels.",
+      "tool_name": "search_hotels",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Find a tool for type stay lodging.",
+      "tool_name": "search_hotels",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Can you handle type stay lodging using the right API?",
+      "tool_name": "search_hotels",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I need search hotels with the required parameters.",
+      "tool_name": "search_hotels",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Run something that can search available hotels in a city for a stay period.",
+      "tool_name": "search_hotels",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Which function should I call for type stay lodging?",
+      "tool_name": "search_hotels",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Use the service related to type stay lodging.",
+      "tool_name": "search_hotels",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I want to send an email message to a recipient.",
+      "tool_name": "send_email",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Help me with send email.",
+      "tool_name": "send_email",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Find a tool for message recipient email.",
+      "tool_name": "send_email",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Can you handle message recipient email using the right API?",
+      "tool_name": "send_email",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I need send email with the required parameters.",
+      "tool_name": "send_email",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Run something that can send an email message to a recipient.",
+      "tool_name": "send_email",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Which function should I call for message recipient email?",
+      "tool_name": "send_email",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Use the service related to message recipient email.",
+      "tool_name": "send_email",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I want to create a calendar event with title, time, and attendees.",
+      "tool_name": "create_calendar_event",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Help me with create calendar event.",
+      "tool_name": "create_calendar_event",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Find a tool for type event title.",
+      "tool_name": "create_calendar_event",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Can you handle type event title using the right API?",
+      "tool_name": "create_calendar_event",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I need create calendar event with the required parameters.",
+      "tool_name": "create_calendar_event",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Run something that can create a calendar event with title, time, and attendees.",
+      "tool_name": "create_calendar_event",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Which function should I call for type event title?",
+      "tool_name": "create_calendar_event",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Use the service related to type event title.",
+      "tool_name": "create_calendar_event",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I want to convert an amount of money from one currency to another.",
+      "tool_name": "convert_currency",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Help me with convert currency.",
+      "tool_name": "convert_currency",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Find a tool for amount convert money.",
+      "tool_name": "convert_currency",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Can you handle amount convert money using the right API?",
+      "tool_name": "convert_currency",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "I need convert currency with the required parameters.",
+      "tool_name": "convert_currency",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Run something that can convert an amount of money from one currency to another.",
+      "tool_name": "convert_currency",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Which function should I call for amount convert money?",
+      "tool_name": "convert_currency",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    },
+    {
+      "query": "Use the service related to amount convert money.",
+      "tool_name": "convert_currency",
+      "source": "HeuristicTeacher",
+      "verification_score": 1.0
+    }
+  ]
+}
