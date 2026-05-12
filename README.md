@@ -1,22 +1,22 @@
 # Toollery Python Flow
 
-这是根据论文 `Toollery: Scaling LLM Agents to Thousands of Tools` 实现的端到端 Python 代码流程。核心思想是把大规模工具选择拆成两步：
+This repository contains an end-to-end Python implementation of the workflow described in `Toollery: Scaling LLM Agents to Thousands of Tools`. The core idea is to split large-scale tool selection into two stages:
 
-1. 离线阶段：为每个工具生成多样化 proxy queries，并通过 round-trip verification 过滤掉不稳定样本。
-2. 在线阶段：用户请求先和 proxy queries 做 intent-to-intent 检索，再把聚合后的 top-k 工具交给最终选择器。
+1. Offline stage: generate diverse proxy queries for each tool and filter noisy samples with round-trip verification.
+2. Online stage: retrieve proxy queries by intent-to-intent matching, aggregate them into top-k tool candidates, and pass the compact candidate set to the final selector.
 
-代码默认使用无外部服务的启发式 teacher/verifier/selector，方便直接跑通。生产环境可以把 `OpenAICompatibleLLM` 作为 teacher、verifier 或最终 selector。
+The default implementation uses dependency-free heuristic teacher, verifier, and selector components so the full pipeline can run locally. In production, `OpenAICompatibleLLM` can be used as the teacher, verifier, or final selector.
 
-## 目录
+## Project Structure
 
-- `toollery/manual.py`：论文 Algorithm 1，对工具元数据合成并验证 proxy queries。
-- `toollery/retrieval.py`：proxy-query 检索、按工具聚合分数、构造 compact candidate set。
-- `toollery/pipeline.py`：在线推理流程，先召回候选工具，再生成工具调用。
-- `toollery/scaletool.py`：ScaleTool 风格的候选集增长评测。
-- `toollery/cli.py`：命令行入口。
-- `examples/`：一组可运行的工具和测试样例。
+- `toollery/manual.py`: implements Algorithm 1 from the paper, synthesizing and verifying proxy queries from tool metadata.
+- `toollery/retrieval.py`: performs proxy-query retrieval, tool-level score aggregation, and compact candidate-set construction.
+- `toollery/pipeline.py`: runs the online inference flow by retrieving candidate tools and producing a tool call.
+- `toollery/scaletool.py`: provides a ScaleTool-style evaluation under candidate-set growth.
+- `toollery/cli.py`: exposes the workflow through a command-line interface.
+- `examples/`: contains runnable tool definitions, a generated manual, and sample evaluation cases.
 
-## 快速运行
+## Quick Start
 
 ```bash
 python -m toollery.cli build-manual \
@@ -43,7 +43,7 @@ python -m toollery.cli benchmark \
   --top-k 3
 ```
 
-## 使用真实 LLM
+## Use a Real LLM
 
 ```python
 from toollery.llm import OpenAICompatibleLLM
@@ -56,16 +56,16 @@ agent = ToolleryAgent(tools, manual, selector=llm, tool_top_k=5)
 call, candidates = agent.run("Book me a flight to Singapore tomorrow")
 ```
 
-需要设置：
+Required environment variables:
 
 ```bash
 export OPENAI_API_KEY="..."
 export OPENAI_MODEL="gpt-5-mini"
 ```
 
-## 输入格式
+## Input Format
 
-工具文件支持：
+Tool files use this format:
 
 ```json
 {
@@ -85,7 +85,7 @@ export OPENAI_MODEL="gpt-5-mini"
 }
 ```
 
-评测样例支持：
+Evaluation cases use this format:
 
 ```json
 {
