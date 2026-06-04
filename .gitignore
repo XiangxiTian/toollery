@@ -1,0 +1,48 @@
+# macOS metadata
+.DS_Store
+._*
+**/._*
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Local secrets and environment overrides
+.env
+.env.*
+*.local
+
+# Logs, temporary files, and interrupted downloads
+*.log
+*.tmp
+*.temp
+*.partial
+*.partial.*
+*.partial.jsonl
+*.crdownload
+
+# Generated experiment outputs and retrieval indexes
+outputs/
+.raganything*/
+rag_storage/
+lightrag_cache/
+.building
+.inserted
+
+# LaTeX build artifacts
+**/build/
+*.aux
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz

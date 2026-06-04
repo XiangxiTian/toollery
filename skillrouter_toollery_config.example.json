@@ -1,0 +1,32 @@
+{
+  "openai": {
+    "api_key_env": "OPENAI_API_KEY",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-5-mini"
+  },
+  "skillrouter_toollery": {
+    "skillrouter_root": "/Users/txx1220/Projects/skillrouter/SkillRouter",
+    "data_root": "data/eval_core",
+    "tiers": ["easy", "hard"],
+    "manual_scope": "gt-related",
+    "proxy_queries_per_skill": 3,
+    "verify_proxies": true,
+    "top_k": 50,
+    "proxy_top_k": 200,
+    "task_mode": "core",
+    "verifier_distractors": 8,
+    "example_queries_from_relevance": true,
+    "examples_per_skill": 3,
+    "limit_pool": null,
+    "limit_skills": null,
+    "limit_tasks": null,
+    "seed": 31,
+    "force_rebuild": false,
+    "output_dir": "outputs/toollery_skillrouter",
+    "manual_raw_out": "manual_raw_{tier}.jsonl",
+    "manual_out": "manual_verified_{tier}.json",
+    "predictions_out": "retrieval/{tier}.json",
+    "metrics_out": "metrics/{tier}.json",
+    "summary_out": "summary.json"
+  }
+}

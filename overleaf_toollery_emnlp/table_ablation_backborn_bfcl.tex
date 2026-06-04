@@ -1,0 +1,35 @@
+\begin{table*}[htb]
+\caption{\label{bfclResult-toollery}
+    End-to-end BFCL-V4 non-live multiple tool-selection accuracy under increasing candidate-pool sizes. These results measure downstream LLM selection after candidate compression, not standalone retrieval quality.
+  }
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccccc}
+\hline \hline
+\textbf{Model} &
+  \textbf{$\leq$ 10} &
+  \textbf{20} &
+  \textbf{30} &
+  \textbf{40} &
+  \textbf{50} &
+  \textbf{100} &
+  \textbf{500} &
+  \textbf{1000} \\ \hline \hline
+\textbf{Qwen3-4B (Prompt)}                  & 95.50  & 99.50  & 97.50 & 96.50 & 95.50 & 90.00 & 24.25 & \textbackslash{} \\
+\textbf{Qwen3-4B (Prompt) + Toollery}       & \textbf{100.00} $\Uparrow$ & 97.50  & 98.00 $\Uparrow$ & 95.00 & 98.00 $\Uparrow$ & 91.50 $\Uparrow$ & 83.63 $\Uparrow$ & 81.50 $\Uparrow$            \\ \hline
+\textbf{Qwen3-8B (Prompt)}                  & 97.50  & 98.50  & \textbf{99.50} & 97.50 & 97.00 & 89.50 & 37.63 & \textbackslash{} \\
+\textbf{Qwen3-8B (Prompt) + Toollery}       & 99.50 $\Uparrow$  & \textbf{100.00} $\Uparrow$ & 97.50 & 96.00 & 98.00 $\Uparrow$ & 91.00 $\Uparrow$ & 80.63 $\Uparrow$ & 80.40 $\Uparrow$            \\ \hline
+\textbf{DeepSeek V3.2  (Prompt)}            & 86.00  & 99.50  & 97.00 & 94.50 & 96.50 & 85.50 & 70.25 & 65.80            \\
+\textbf{DeepSeek V3.2  (Prompt) + Toollery} & 97.50 $\Uparrow$  & 97.50  & 95.00 & 98.00 $\Uparrow$ & \textbf{98.50} $\Uparrow$ & 89.50 $\Uparrow$ & 81.38 $\Uparrow$ & 80.80 $\Uparrow$            \\ \hline
+\textbf{GPT-5-mini  (Prompt)}               & 88.00  & 87.50  & 92.50 & 85.00 & 88.50 & 88.00 & 80.00 & 76.10            \\
+\textbf{GPT-5-mini  (Prompt) + Toollery}    & 88.00  & 89.50 $\Uparrow$  & 91.50 & 86.50 $\Uparrow$ & 95.00 $\Uparrow$ & 90.00 $\Uparrow$ & 82.00 $\Uparrow$ & 81.00 $\Uparrow$           \\ \hline
+\textbf{GPT-5-mini (FC)}                    & 79.50  & 69.50  & 65.50 & 72.00 & 70.50 & 63.50 & 58.63 & 50.50            \\
+\textbf{GPT-5-mini (FC) + Toollery}         & 81.50 $\Uparrow$  & 77.00 $\Uparrow$  & 75.50 $\Uparrow$ & 73.00 $\Uparrow$ & 76.00 $\Uparrow$ & 69.50 $\Uparrow$ & 68.63 $\Uparrow$ & 68.50 $\Uparrow$            \\ \hline
+\textbf{Qwen3-8B (FC)}                      & 97.50  & 97.50  & 97.50 & \textbf{98.50} & 96.00 & 85.00 & 60.75 & \textbackslash{} \\
+\textbf{Qwen3-8B (FC) + Toollery}           & 99.50 $\Uparrow$  & 96.50  & 97.50 & 96.50 & 97.00 $\Uparrow$ & 90.50 $\Uparrow$ & 86.75 $\Uparrow$ & 83.30 $\Uparrow$            \\ \hline
+\textbf{Qwen3-235B (FC)}                    & 95.50  & 99.50  & 96.50 & 96.00 & 97.50 & 80.00 & 79.13 & 78.20            \\
+\textbf{Qwen3-235B (FC) + Toollery}         & 96.00 $\Uparrow$  & 99.00  & 98.50 $\Uparrow$ & 98.00 $\Uparrow$ & 98.00 $\Uparrow$ & \textbf{93.50} $\Uparrow$ & \textbf{94.00} $\Uparrow$ & \textbf{86.30} $\Uparrow$            \\ \hline \hline
+\end{tabular}
+}
+\vskip -0.1in
+\end{table*}

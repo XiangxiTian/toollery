@@ -1,0 +1,53 @@
+{
+  "deepseek": {
+    "api_key_env": "DASHSCOPE_API_KEY",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen3-max",
+    "timeout": 120,
+    "extra_body": {
+      "thinking": {
+        "type": "disabled"
+      }
+    }
+  },
+  "embedding": {
+    "backend": "openai-compatible",
+    "api_key_env": "DASHSCOPE_API_KEY",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "text-embedding-v4",
+    "dim": 1024,
+    "batch_size": 10,
+    "timeout": 120,
+    "max_retries": 5
+  },
+  "skillrouter_toollery": {
+    "skillrouter_root": "/Users/txx1220/Projects/skillrouter/SkillRouter",
+    "data_root": "data/eval_core",
+    "tiers": ["easy", "hard"],
+    "manual_scope": "full-pool",
+    "proxy_queries_per_skill": 3,
+    "verify_proxies": false,
+    "top_k": 50,
+    "proxy_top_k": 200,
+    "task_mode": "core",
+    "verifier_distractors": 8,
+    "example_queries_from_relevance": true,
+    "examples_per_skill": 3,
+    "llm_workers": 4,
+    "llm_batch_size": 4,
+    "skill_body_chars": 0,
+    "limit_pool": null,
+    "limit_skills": null,
+    "limit_tasks": null,
+    "seed": 31,
+    "force_rebuild": false,
+    "output_dir": "outputs/toollery_skillrouter",
+    "manual_raw_out": "manual_raw_deepseek_full_{tier}.jsonl",
+    "manual_out": "manual_verified_deepseek_full_{tier}.json",
+    "manual_embeddings_out": "embeddings/manual_embeddings_deepseek_full_{tier}.json",
+    "force_rebuild_embeddings": false,
+    "predictions_out": "retrieval/deepseek_full_{tier}.json",
+    "metrics_out": "metrics/deepseek_full_{tier}.json",
+    "summary_out": "summary_deepseek_full.json"
+  }
+}

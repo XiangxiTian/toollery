@@ -1,0 +1,25 @@
+{
+  "openai": {
+    "api_key": "",
+    "base_url": "",
+    "model": "gpt-5-mini"
+  },
+  "skill_scaletool": {
+    "skills_root": "data/openharmony-skills",
+    "tools_out": "skill_tools.json",
+    "raw_benchmark_out": "skill_benchmark_raw.jsonl",
+    "benchmark_out": "skill_benchmark_verified.jsonl",
+    "manual_out": "skill_toollery_manual.json",
+    "scaled_data_out": "skill_scaled_data.jsonl",
+    "out": "skill_scaled_toollery_predictions.jsonl",
+    "queries_per_skill": 5,
+    "sizes": [2, 5, 10, 20, 50, 100, 200],
+    "top_k": 3,
+    "proxy_top_k": 20,
+    "manual_queries_per_tool": 8,
+    "manual_distractors": 8,
+    "verifier_distractors": 8,
+    "seed": 23,
+    "force_rebuild": false
+  }
+}

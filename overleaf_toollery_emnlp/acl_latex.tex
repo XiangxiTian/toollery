@@ -1,0 +1,362 @@
+\documentclass[11pt]{article}
+
+% Change "review" to "final" to generate the final (sometimes called camera-ready) version.
+% Change to "preprint" to generate a non-anonymous version with page numbers.
+\usepackage[review]{acl}
+
+% Standard package includes
+\usepackage{times}
+\usepackage{latexsym}
+
+% For proper rendering and hyphenation of words containing Latin characters (including in bib files)
+\usepackage[T1]{fontenc}
+% For Vietnamese characters
+% \usepackage[T5]{fontenc}
+% See https://www.latex-project.org/help/documentation/encguide.pdf for other character sets
+
+% This assumes your files are encoded as UTF8
+\usepackage[utf8]{inputenc}
+
+% This is not strictly necessary, and may be commented out,
+% but it will improve the layout of the manuscript,
+% and will typically save some space.
+\usepackage{microtype}
+
+% This is also not strictly necessary, and may be commented out.
+% However, it will improve the aesthetics of text in
+% the typewriter font.
+\usepackage{inconsolata}
+
+%Including images in your LaTeX document requires adding
+%additional package(s)
+\usepackage{graphicx}
+
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+
+\usepackage{algpseudocode}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{multirow}
+
+
+
+
+% If the title and author information does not fit in the area allocated, uncomment the following
+%
+%\setlength\titlebox{<dim>}
+%
+% and set <dim> to something 5cm or larger.
+
+\title{Toollery: Scaling LLM Agents to Hundreds of Tools}
+
+% Author information can be set in various styles:
+% For several authors from the same institution:
+% \author{Author 1 \and ... \and Author n \\
+%         Address line \\ ... \\ Address line}
+% if the names do not fit well on one line use
+%         Author 1 \\ {\bf Author 2} \\ ... \\ {\bf Author n} \\
+% For authors from different institutions:
+% \author{Author 1 \\ Address line \\  ... \\ Address line
+%         \And  ... \And
+%         Author n \\ Address line \\ ... \\ Address line}
+% To start a separate ``row'' of authors use \AND, as in
+% \author{Author 1 \\ Address line \\  ... \\ Address line
+%         \AND
+%         Author 2 \\ Address line \\ ... \\ Address line \And
+%         Author 3 \\ Address line \\ ... \\ Address line}
+
+\author{Xiangxi Tian \\
+  Huawei / Address line 1 \\
+  \texttt{xiangxitian1@huawei.com} \\\And
+  Ran Guan \\
+  Huawei / Address line 1 \\
+  Affiliation / Address line 2 \\
+  \texttt{guanran@huawei.com} \\}
+
+%\author{
+%  \textbf{First Author\textsuperscript{1}},
+%  \textbf{Second Author\textsuperscript{1,2}},
+%  \textbf{Third T. Author\textsuperscript{1}},
+%  \textbf{Fourth Author\textsuperscript{1}},
+%\\
+%  \textbf{Fifth Author\textsuperscript{1,2}},
+%  \textbf{Sixth Author\textsuperscript{1}},
+%  \textbf{Seventh Author\textsuperscript{1}},
+%  \textbf{Eighth Author \textsuperscript{1,2,3,4}},
+%\\
+%  \textbf{Ninth Author\textsuperscript{1}},
+%  \textbf{Tenth Author\textsuperscript{1}},
+%  \textbf{Eleventh E. Author\textsuperscript{1,2,3,4,5}},
+%  \textbf{Twelfth Author\textsuperscript{1}},
+%\\
+%  \textbf{Thirteenth Author\textsuperscript{3}},
+%  \textbf{Fourteenth F. Author\textsuperscript{2,4}},
+%  \textbf{Fifteenth Author\textsuperscript{1}},
+%  \textbf{Sixteenth Author\textsuperscript{1}},
+%\\
+%  \textbf{Seventeenth S. Author\textsuperscript{4,5}},
+%  \textbf{Eighteenth Author\textsuperscript{3,4}},
+%  \textbf{Nineteenth N. Author\textsuperscript{2,5}},
+%  \textbf{Twentieth Author\textsuperscript{1}}
+%\\
+%\\
+%  \textsuperscript{1}Affiliation 1,
+%  \textsuperscript{2}Affiliation 2,
+%  \textsuperscript{3}Affiliation 3,
+%  \textsuperscript{4}Affiliation 4,
+%  \textsuperscript{5}Affiliation 5
+%\\
+%  \small{
+%    \textbf{Correspondence:} \href{mailto:email@domain}{email@domain}
+%  }
+%}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+The growing deployment of large language models (LLMs) as agentic systems has made tool selection a critical bottleneck in real-world applications. We identify a \textit{tool pool scalability challenge}, where tool selection accuracy degrades significantly as the number of available tools increases, even for tool-specialized models. To quantify this effect, we introduce \textbf{ScaleTool}, a benchmark framework for the controlled expansion of candidate tool pools. Using ScaleTool, we observe that scaling the candidate set to 1,000 tools incurs a 35-fold increase in input tokens, frequently triggering context length limits. Even when within these limits, models suffer from a significant decline in selection accuracy. In either cases, standard LLM-based tool selection becomes infeasible. To address this, we propose \textbf{Toollery}, a framework for robust tool selection under growing tool pools without additional LLM fine-tuning. Toollery bridges the semantic gap between user intent and tool functionality through a two-stage design: offline synthesis and self-verification of proxy queries using teacher and verifier LLMs, followed by online intent--intent retrieval constructing a compact, high-confidence candidate set. 
+Experiments demonstrate that Toollery maintains a nearly constant candidate set size as the tool pool grows, while achieving an improvement at least $10\%$ at challenged scenarios for baseline LLMs.
+
+\end{abstract}
+
+\begin{figure}[ht]
+  \vskip 0.2in
+  \begin{center}
+    \centerline{\includegraphics[width=\columnwidth]{figs/figure1.jpg}}
+    \caption{
+      Impact of candidate pool size on tool selection accuracy. The graph illustrates the performance degradation across various LLMs as the number of available tools ($n$) increases from 10 to 1000. Results are derived from a synthetic benchmark evaluating queries from BFCL-V4.
+    }
+    \label{fig:fig1}
+  \end{center}
+\end{figure}
+
+\section{Introduction}
+\label{sec:intro}
+
+The rapid evolution of large language models (LLMs) has endowed them with strong capabilities in natural language understanding, reasoning, and program synthesis \citep{achiam2023gpt}. Beyond their role as standalone text generators, LLMs are increasingly deployed as agentic systems that interact with external environments through tool invocation \citep{huang2024planning, schick2023toolformer, yao2022webshop}. A central component of this paradigm is \textit{tool selection}---the process by which an agent identifies the appropriate tool(s) to invoke from a set of candidates.\footnote{In this line of research, the terms \textit{tool}, \textit{API}, and \textit{function} are used interchangeably. For consistency, we use the term \textit{tool} throughout this paper.}
+
+Despite recent progress, deploying tool-augmented LLM agents remains challenging as candidate tool sets grow and user requests remain underspecified. We identify a pronounced \textit{tool pool scalability challenge}: tool selection accuracy degrades as the number of available tools increases. To study this effect in a controlled setting, we evaluate LLMs on verified (query, tool) pairs drawn from HammerBench \citep{wang2025hammerbench} and xLAM \citep{liu2024apigen}, systematically expanding the candidate tool set from 10 to 1,000 by injecting randomly sampled distractor tools while holding the ground-truth tool fixed. In this setting, accuracy drops consistently as the candidate set expands (~\ref{fig:fig1}). Similar degradation is observed in broader evaluations, such as the Berkeley Function Calling Leaderboard (BFCL) \citep{patilberkeley}, where larger and more dynamic tool environments (the \textit{live-multiple} dataset from BFCL) lead to reduced accuracy.
+
+
+In practical deployments, this challenge is amplified. Real-world agents often operate over massive tool libraries, ranging from dozens in OS automation \cite{wu2024copilot} to over 10,000 operations in cloud infrastructure SDKs \cite{boto3}. Recent benchmarks like LiveMCPBench \cite{mo2025livemcpbench} and TPS-Bench \cite{xu2025tps} confirm this trend, validating agents against ecosystems containing hundreds of diverse tools. At this scale, the standard approach---attaching all tool definitions to the system prompt---is impractical for two reasons. First, computational and token costs scale prohibitively with context length. Second, as our empirical results demonstrate, expanding the tool context substantially reduces selection accuracy. These observations motivate the need for mechanisms that explicitly manage and compress the tool search space prior to model inference.
+
+To address this challenge, we propose \textbf{Toollery}, a modular framework designed to enable accurate tool selection over growing tool pools without additional model fine-tuning. Unlike prior retrieval-based approaches that match user queries directly to tool metadata, Toollery introduces a self-verified proxy-query layer that enables \textit{intent--intent matching}, decoupling semantic grounding from model inference. Toollery operates by (i) pre-generating structured, self-verified documentation for each tool, and (ii) dynamically filtering the tool space at inference time to present the LLM with a compact set of high-confidence candidates. This design allows existing LLMs to retain their function-calling capabilities while adapting to a continuously growing tool library.
+
+
+Our contributions are as follows:
+\begin{itemize}
+    \item \textbf{The Toollery Framework.} We introduce a modular framework that operates purely at the tool-selection interface. It integrates with diverse backbone LLMs without modifying model weights, enabling robust tool selection under growing tool pools.
+    \item \textbf{Self-verified Tool Manuals.} We propose an automated pipeline that synthesizes structured tool manuals composed of diverse natural-language proxy queries. These are rigorously filtered via round-trip self-verification, improving the semantic alignment between user intent and tool functionality.
+    \item \textbf{ScaleTool Benchmark.} We construct ScaleTool, a benchmark derived from HammerBench \cite{wang2025hammerbench} and xLAM \cite{liu2024apigen} that evaluates tool selection robustness under controlled candidate-set growth. Experiments across multiple benchmarks demonstrate consistent improvements as the candidate tool set expands.
+\end{itemize}
+
+
+Taken together, these observations motivate a solution that explicitly manages candidate-set growth without relying on additional model training or architectural modification. In the following ~\ref{sec:method}, we introduce Toollery in detail, a modular framework that addresses the tool pool scalability challenge by separating semantic grounding from inference-time decision making. We first describe how Toollery constructs self-verified tool manuals offline, and then explain how these manuals enable efficient intent--intent matching to dynamically filter candidate tools at inference time.
+
+
+\section{Related Work}
+
+Recent work on integrating external tools into LLMs broadly follows two directions: (i) internalizing tool-use capabilities through model retraining or fine-tuning, and (ii) mitigating scalability challenges through retrieval and strategy optimization.
+
+\textbf{Model retraining and fine-tuning.}
+A primary category of research aims to internalize tool-use behavior via supervised fine-tuning (SFT). Seminal works like Gorilla \cite{patil2024gorilla, touvron2023llama} and ToolLLM \cite{qin2023toolllm} demonstrate that training on tools or execution trajectories substantially improves syntactic correctness and reduces hallucinations compared to prompting alone. Subsequent efforts have specialized this paradigm for conversational alignment \cite{liu2024toolace, acikgoz2025can}, on-device efficiency \cite{erdogan2024tinyagent}, and robustness to noisy descriptions \cite{wang2025hammerbench}. Recently, proprietary models like GLM-4 \cite{zeng2025glm} have further integrated native function-calling directly into pre-training and alignment.
+
+While effective for specific tasks, internalizing tool-use capabilities via SFT introduces a rigid trade-off. Fine-tuning an LLM on specialized tool-invocation datasets often degrades the model's broader reasoning and general-purpose capabilities---a phenomenon characterized as ``catastrophic forgetting'' or alignment tax \cite{kirkpatrick2017overcoming, luo2025empirical, fu-etal-2024-disperse}. In contrast, Toollery offers a non-destructive, plug-and-play alternative. By decoupling tool-selection logic from the model's internal weights, we enable robust selection across growing tool pools without sacrificing the backbone LLM's inherent reasoning versatility.
+
+
+\textbf{Retrieval and strategy optimization.}
+Apart from fine-tuning, another category of work treats tool selection as a retrieval problem, introducing external mechanisms to manage both context length and the combinatorial growth of the action space. ToolRM \cite{agarwal2025toolrm} proposes a learned dense retriever to rank candidate tools by semantic relevance, decoupling tool selection from execution. MassTool \cite{lin2025masstool} extends this idea to extreme-scale settings, leveraging indexing and search techniques to operate over libraries containing tens of thousands of tools.
+
+Complementary approaches optimize how tool information is presented to the LLM. The Less is More \cite{paramanayakam2025less} demonstrates that aggressive context pruning---rather than maximal context inclusion---often improves tool selection accuracy. 
+% RAG-MCP \cite{gan2025rag} formalizes this perspective by integrating retrieval directly into the generation loop, allowing agents to dynamically query tool documentation only when necessary. 
+Collectively, these methods aim to construct a compact, high-confidence candidate set that bridges the gap between massive tool libraries and the limited attention budget of LLMs.
+
+
+Unlike prior retrieval-based approaches that rely on direct query--metadata matching or learned retrievers, Toollery introduces a self-verified proxy-query layer. This explicitly aligns user intent with tool functionality, decoupling semantic grounding from model inference and eliminating the need for retriever training.
+
+\section{The Toollery Design}
+\label{sec:method}
+The essential idea of Toollery is to let LLMs study each single tool beforehand, so that at inference time the selection challenge is reduced to an easier comparison problem. By isolating the tool selection problem into online and offline stages, Toollery can be readily plugged in any existing LLMs and play. As illustrated in ~\ref{fig:fig2}, these two stages do the following:
+
+\begin{itemize}
+    \item \textbf{Offline Tool Manual Synthesis:} A pre-processing phase that bridges the semantic gap between static tool metadata and diverse user intents.
+    \item \textbf{Online Proxy-Query Matching:} An inference-time mechanism that dynamically filters the search space to retrieve a compact, high-confidence candidate tool set. 
+\end{itemize}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\linewidth]{figs/toollery_pipeline(1).jpg}
+    \caption{Overview of the Toollery framework. The pipeline bridges the semantic gap in tool selection via two stages: (1) \textbf{Tool Manual Synthesis} (offline), which generates and validates proxy queries, and (2) \textbf{Proxy-Query Matching} (online), which retrieves relevant tools for the LLM.}
+    \label{fig:fig2}
+\end{figure}
+
+
+\subsection{Tool Manual Synthesis (Offline Phase)}
+
+A core limitation of conventional retrieval-based tool selection lies in the semantic gap between abstract tool metadata and the diverse, often ambiguous expressions of user intent. While tool metadata specifies \emph{functionality} (what a tool does), users typically describe \emph{intent} (what they want). A natural approach to bridging this gap is to synthesize natural-language queries from tool descriptions to serve as semantic anchors. However, naïvely generated synthetic queries are often noisy or weakly aligned: a query may be linguistically plausible yet compatible with multiple tools, or it may map to an incorrect tool when evaluated against a larger candidate set. Such ambiguity is particularly harmful under \emph{candidate-set growth}, where even small semantic drifts can substantially degrade retrieval precision. To address this, Toollery constructs a \textbf{Tool User Manual} that encodes high-precision intent--tool associations. This is achieved via a two-step process: diversity-driven synthesis followed by rigorous self-verification (see ~\ref{alg:tool-manual}).
+
+
+
+\textbf{Diversity-Driven Query Synthesis.} For each tool, we treat its metadata as a semantic seed to generate a diverse population of proxy user queries. Using a high-capacity teacher LLM (e.g., GPT-5), we apply chain-of-thought prompting to iteratively transform tool metadata into natural language intents. We explicitly steer the generation using three linguistic operators:
+\begin{itemize}
+    \item \textbf{Paraphrasing:} Rewriting the intent using varied vocabulary and syntactic structures.
+    \item \textbf{Complexity Injection:} Incorporating implicit constraints or multi-turn context (e.g., transforming "Get weather" to "I need to know if I should pack an umbrella for London tomorrow").
+    \item \textbf{Ambiguity Simulation:} Simulating underspecified user requests that rely on partial information, forcing the model to infer the correct tool from context.
+\end{itemize}
+This approach ensures the resulting manual covers a broad spectrum of potential user interactions, extending far beyond the semantic reach of static documentation.
+
+
+
+
+\textbf{Self-Verification via Round-Trip Consistency.} Automated synthesis risks introducing "hallucinated" queries that do not align with the tool's actual functionality. To mitigate this, we deploy a \emph{Verifier Agent}---a separate LLM instance for quality control. The Verifier is presented with a generated proxy query $q$ along with a candidate set containing the target tool $t$ and a set of distractor tools sampled from the pool. We then perform a \textbf{Round-Trip Consistency Check}: if the Verifier retrieves the original seed tool $t$ given query $q$, the query is deemed valid and retained. If the agent selects a different tool or fails to select any tool, the query is discarded. This peer-review process ensures that every entry in the Tool User Manual is not only linguistically diverse but also functionally unambiguous.
+
+
+\begin{algorithm}[tb]
+   \caption{Tool Manual Synthesis with Round-Trip Verification}
+   \label{alg:tool-manual}
+   \begin{algorithmic}
+      \State {\bfseries Input:} Tool pool $\mathcal{T}$; metadata $M(t)$ for each $t \in \mathcal{T}$; Teacher $\mathcal{L}_{\text{gen}}$; Verifier $\mathcal{L}_{\text{ver}}$; distractor count $k$
+      \State {\bfseries Output:} Tool User Manual $\mathcal{U}$
+      \State Initialize $\mathcal{U} \leftarrow \emptyset$
+      \For{each tool $t \in \mathcal{T}$}
+         \State \Comment{Step 1: Diversity-Driven Synthesis}
+         \State Generate candidate queries $Q_t = \{q_1, \ldots, q_N\}$ from $M(t)$ using $\mathcal{L}_{\text{gen}}$
+         \For{each query $q \in Q_t$}
+             \State \Comment{Step 2: Round-Trip Verification}
+             \State Sample distractor set $\mathcal{S}_{\text{neg}} \subset \mathcal{T} \setminus \{t\}$ with $|\mathcal{S}_{\text{neg}}| = k$
+             \State Construct verification pool $\mathcal{T}_{\text{verify}} = \{t\} \cup \mathcal{S}_{\text{neg}}$
+             \State $\hat{t} \leftarrow \mathcal{L}_{\text{ver}}(\text{query}=q, \text{tools}=\mathcal{T}_{\text{verify}})$
+             \If{$\hat{t} = t$}
+                 \State Add $(q, t)$ to $\mathcal{U}$
+             \EndIf
+         \EndFor
+      \EndFor
+      \State \textbf{return} $\mathcal{U}$
+   \end{algorithmic}
+\end{algorithm}
+
+
+\begin{figure}[ht]
+  \vskip 0.2in
+  \begin{center}
+    \centerline{\includegraphics[width=\columnwidth]{figs/toollery_illustration(1).jpg}}
+    \caption{
+      Comparison of tool selection pipelines. Standard methods (upper) pass all candidates to the LLM, leading to context overflow. Toollery (lower) filters candidates via proxy-query matching before inference.
+    }
+    \label{fig:toollery_illustration}
+  \end{center}
+\end{figure}
+
+\subsection{Proxy-Query Matching (Online Phase)}
+
+\input{table_scaletool_hb}
+
+As illustrated in ~\ref{fig:toollery_illustration}, providing an LLM with a massive set of candidate tools at inference time is both inefficient and error-prone. Rather than presenting the full library, Toollery leverages the pre-constructed \textbf{Tool User Manual} to selectively filter the search space, enabling the model to reason over a compact, semantically coherent candidate set.
+
+
+\textbf{Intent-Level Semantic Retrieval.}
+At inference time, Toollery avoids direct retrieval against abstract tool metadata. Instead, it embeds the incoming user query into a shared semantic space and performs retrieval against the verified proxy queries stored in the Tool User Manual. In our implementation, we employ a lightweight embedding model (e.g., Google Gemma 300M or similar) to encode both user and proxy queries into dense vector representations. Retrieval is performed by computing the cosine similarity between the user query embedding and the proxy-query index. Because each proxy query is self-verified to map unambiguously to a specific tool, this process operates over a space of grounded user intents rather than static descriptions. This reformulation fundamentally transforms tool selection from \textit{Query-to-Metadata} matching into \textit{Query-to-Query} alignment---a paradigm that is significantly more robust to linguistic variation, particularly as the tool pool scales.
+
+
+\textbf{Dynamic Candidate Set Construction.}
+The retrieved proxy queries are aggregated to form a ranked list of \emph{candidate tools}. Since multiple proxy queries may map to the same underlying tool, we aggregate their similarity scores to derive a tool-level relevance score. This aggregation step acts as a denoising filter: it suppresses isolated false matches while reinforcing tools supported by multiple high-confidence proxy hits. From this ranked list, Toollery selects the top-$k$ tools and instantiates their full specifications (names, descriptions, and parameter schemas). By restricting the context to this compact subset, Toollery minimizes contextual noise, allowing the model to focus on precise argument extraction.
+
+
+\textbf{Inference and Execution.}
+Finally, the compact candidate set is passed to the inference LLM using standard function-calling protocols. The LLM acts as the final decision-maker, selecting the appropriate tool and generating the arguments based on the user query. Importantly, Toollery does not override the LLM's reasoning capabilities; instead, it constrains the \textit{action space}, ensuring the model operates within a focused and semantically relevant boundary. This design preserves compatibility with existing agentic pipelines while ensuring robustness against candidate-set growth.
+
+\section{Experiments}
+
+
+To rigorously quantify the tool pool scalability challenge and evaluate the efficacy of Toollery, we introduce \textbf{ScaleTool}, a benchmark framework that systematically varies context density while preserving ground-truth intent.
+
+\subsection{The ScaleTool Protocol}
+Existing benchmarks typically evaluate tool selection with a fixed, often small, number of candidate tools. ScaleTool generalizes this by treating the \textit{candidate set size} as an independent variable. For a given verified pair $(\text{query}, t_{gt})$ where $t_{gt}$ is the ground-truth tool, we construct a candidate pool $\mathcal{P}_n$ of size $n \in \{2, 5, 10, \dots, 500, 1000\}$. The pool $\mathcal{P}_n$ contains $t_{gt}$ and $n-1$ distractor tools sampled uniformly from the disjoint set of available tools in the library. This construction isolates the impact of contextual noise: as $n$ increases, the model must identify $t_{gt}$ in the context of an increasing volume of irrelevant tool definitions.
+
+Crucially, this expansion causes a dramatic increase in input complexity. As shown in our analysis, expanding the candidate set from 10 to 1,000 tools results in input lengths growing from $\sim$1k to over 100k tokens. This extreme context loading allows us to stress-test the capability of LLMs and demonstrate the necessity of pre-inference filtering.
+
+\subsection{Evaluation Datasets}
+We apply the ScaleTool protocol to three widely used tool-use datasets, creating three scaled benchmarks.
+
+
+\textbf{ScaleTool-HB (HammerBench).} Derived from HammerBench \cite{wang2025hammerbench}, this subset comprises 6,531 queries spanning 60 functional categories and a total library of 1,063 tools. It evaluates robustness against noisy or imperfect tool descriptions.
+
+\textbf{ScaleTool-xLAM.} Adapted from xLAM \cite{liu2024apigen}, this benchmark includes 60,000 high-quality function-calling instances covering 3,673 executable tools across 21 categories. It represents a high-scale scenario with a diverse range of user intents.
+
+\textbf{ScaleTool-BFCL.} We also adapt the Berkeley Function Calling Leaderboard (BFCL-V4) \cite{patilberkeley}, the industry standard for executable correctness. Unlike surface-form matching, BFCL utilizes Abstract Syntax Tree (AST) matching to verify the syntactic validity of generated calls. We evaluate on both the \textbf{Non-live} and \textbf{Live} multiple-tool subsets. Under ScaleTool expansion, the Live subset reaches context lengths exceeding 100k tokens, providing our most rigorous test of long-context robustness.
+
+\input{table_scaletool_xlam}
+
+\subsection{Baselines and Experimental Setup}
+We evaluate Toollery across a diverse spectrum of foundation models to ensure our findings generalize across architectures and capabilities.
+
+\textbf{Foundation Models.} We select representative models from both open-source and closed-source families, including the Qwen3 series \cite{yang2025qwen3}, DeepSeek \cite{liu2025deepseek}, and GPT-5-mini \cite{gpt5}. These models were chosen to cover a wide range of parameter counts and reasoning capabilities.
+
+\textbf{Interaction Interfaces.} To verify that Toollery is independent of the tool-use implementation, we evaluate two distinct interaction paradigms:
+\begin{itemize}
+    \item \textbf{Native Function Calling (FC):} The model utilizes specific architectural tokens or structured decoding (e.g., JSON mode) explicitly optimized for tool use.
+    \item \textbf{Prompt-Based Tool Calling:} The model receives tool definitions as natural language text within the system prompt and is instructed to generate tool calls as formatted text, without special architectural support.
+\end{itemize}
+This dual-interface setup allows us to assess whether Toollery effectively supports both specialized agents and general-purpose LLMs.
+
+\input{table_ablation_backborn_bfcl}
+
+\subsection{Results and Analysis}
+While overall benchmark scores provide a high-level view of model capability, they obscure the critical impact of scalability. To isolate the effect of tool library size, we utilize the ScaleTool protocol, holding the query--tool ground truth fixed while varying the candidate pool size $N$. This controlled setting allows us to characterize the performance decay induced by distractors and evaluate Toollery's ability to improve inference accuracy across different backbone LLMs. We report tool selection accuracy binned by candidate set size for all three benchmarks.
+
+
+\subsubsection{Results on ScaleTool-HB}
+As detailed in ~\ref{scaletoolresult_hb-baseline}, candidate-set growth induces a severe performance penalty on backbone LLMs, often leading to total functional collapse in the large-context setting ($N \ge 500$). Contrary to the expectation that specialized "function-calling" (FC) models are more robust, we observe that they are exceptionally brittle to candidate-set growth. High-capacity models like Qwen3-235B (FC) and GPT-5-mini (FC) struggle significantly as the tool pool expands. For instance, Qwen3-235B (FC) maintains respectable accuracy at small scales but collapses to $11.25\%$ at $N=500$. Similarly, GPT-5-mini (FC) fails almost entirely, dropping to $2.5\%$ accuracy. This suggests that native FC mechanisms rely on precise attention to schema definitions, which is easily disrupted by the "noise" of distractor tools. Toollery effectively prevents the degradation for these models. For Qwen3-235B (FC), Toollery restores accuracy to $70.50\%$ at $N=1000$---a tool size scale where the baseline failed to produce valid outputs. This indicates that pre-filtering is not just an optimization but a necessity for making native FC viable at scale.
+
+A noticeable finding is the impact on smaller architectures. The baseline Qwen3-4B (Prompt) struggles significantly, achieving only $31.25\%$ at $N=500$ and failing completely at $N=1000$. With Toollery, this model achieves $66.50\%$ accuracy at $N=1000$, effectively matching the performance of the much larger baseline Qwen3-8B. This result contradicts the assumption that small models lack the reasoning capacity to benefit from retrieval; rather, it suggests that their limitation is \textit{context processing}, which Toollery resolves by presenting a compact, high-relevance window. For robust prompt-based models like DeepSeek V3.2 and GPT-5-mini, Toollery provides a consistent boost. While these models have strong baselines ($>60\%$ at $N=1000$), Toollery pushes them further, achieving state-of-the-art performance (e.g., DeepSeek V3.2 + Toollery reaches $78.00\%$ at $N=1000$ vs. $63.00\%$ baseline). In summary, Toollery acts as an anchor for strong models and an enabler for weaker or brittle ones.
+
+
+\subsubsection{Results on ScaleTool-xLAM}
+As shown in ~\ref{scaletoolresult_xlam-baselines}, the ScaleTool-xLAM benchmark presents a "high-stakes" environment: while models start with high baseline accuracy in small contexts ($N \le 50$), they experience sharply declines as the candidate pool expands, often collapsing more severely than in HammerBench.
+
+A critical observation is that despite high initial performance, many baselines effectively cease to function in the large-context setting ($N=1000$). Both Qwen3-4B and Qwen3-8B (Prompt and FC) degrade rapidly beyond $N=100$. At $N=1000$, these baselines fail completely, due to context window exhaustion. Even powerful models like DeepSeek V3.2 and GPT-5-mini (FC) hit a "performance cliff." For instance, DeepSeek V3.2 maintains $\sim85\%$ accuracy at $N=100$ but drops down to $16.56\%$ at $N=1000$. Similarly, GPT-5-mini (FC) drops from $87.20\%$ ($N=50$) to $11.37\%$ ($N=1000$). Toollery reverses this collapse. It restores the failed Qwen3 models to functional utility ($>70\%$ accuracy at $N=1000$) and boosts DeepSeek V3.2 from $16.56\%$ to $79.47\%$. This demonstrates that the "collapse" is not a reasoning failure, but a search failure---one that Toollery effectively solves.
+
+Unlike the HammerBench results where gains were sometimes model-dependent, Toollery provides a near-universal benefit on xLAM. At $N=1000$, Toollery brings a diverse array of models---ranging from the compact Qwen3-4B ($72.00\%$) to the massive Qwen3-235B ($77.19\%$)---to a remarkably similar high-performance band. This suggests that with effective candidate filtering, smaller models can punch significantly above their weight class, matching the performance of much larger baselines. Even for the strongest baseline, GPT-5-mini (Prompt), which degrades less severe ($71.59\%$ at $N=1000$), Toollery still yields a significant margin of improvement ($\sim \Uparrow 8\%$ to $79.64\%$). This confirms that even state-of-the-art long-context models benefit from decoupling the retrieval space from the reasoning space.
+
+
+\subsubsection{Results on ScaleTool-BFCL}
+
+\input{table_bfcl_live_multiple}
+
+The results on ScaleTool-BFCL (~\ref{bfclResult-toollery} and ~\ref{bfcl_live_Result}) validate our findings in the most rigorous, execution-based setting available. Unlike prior benchmarks, BFCL enforces strict syntactic correctness via Abstract Syntax Tree (AST) matching. A success here implies that the model correctly comprehended the tool's schema and generated valid arguments.
+
+In the Non-Live dataset (~\ref{bfclResult-toollery}), we observe that providing too many tool definitions overwhelms the model's ability to attend to specific parameter schemas. Smaller models like Qwen3-4B and Qwen3-8B (both Prompt and FC) exhibit near-perfect performance at small scales ($>95\%$) but face significant failure at $N=500$ (dropping to $24-37\%$) and total collapse at $N=1000$. This indicates that while these models can reason correctly, their context windows are easily saturated by irrelevant schema tokens. Toollery effectively aids these models. At $N=1000$, it boosts Qwen3-4B from failure to $81.50\%$ and Qwen3-8B (FC) from failure to $83.30\%$. By presenting only the top-$k$ relevant schemas, Toollery allows these efficient models to dedicate their attention to argument generation rather than filtering noise. Even the massive Qwen3-235B (FC), which is relatively robust ($78.20\%$ baseline at $N=1000$), benefits significantly, jumping to $86.30\%$ with Toollery. This confirms that even the largest models suffer when performing complex tool selection.
+
+The Live dataset (~\ref{bfcl_live_Result}) represents the most challenging scenario, involving real-world tools with often overlapping or ambiguous functionality. The vulnerability of native FC interfaces is more obvious here. Qwen3-8B (FC), which performs well at small scales ($93.50\%$), collapses precipitously to $15.90\%$ at $N=1000$, while Toollery restores its accuracy to $83.50\%$. Across all models, Toollery flattens the performance curve. For example, DeepSeek V3.2 sees its accuracy at $N=1000$ rise from $73.80\%$ to $85.50\%$. The consistency of these gains implies that Toollery's "intent--intent" matching is highly effective at disentangling the semantic overlaps often found in real-world tool libraries.
+
+
+Our evaluation across three benchmarks reveals two fundamental insights:
+\begin{itemize}
+\item \textbf{Performance Degradation Across LLMs.} Candidate-set growth degrades performance across all interfaces. Notably, Native FC models exhibit extreme sensitivity, often suffering steeper drops (e.g., to $<15\%$ accuracy on BFCL-Live) than robust prompt-based baselines. Conversely, prompt-based models---especially smaller architectures---suffer primarily from context overload.
+\item \textbf{High-Performance Tool Use with Toollery.} Toollery improves accuracy under growth compared to baseline LLMs. On xLAM and BFCL, small models with Toollery (e.g., Qwen3-4B) frequently outperform larger baselines without it (e.g., Qwen3-8B). This demonstrates that the bottleneck for small LLM is \textit{context processing}, and Toollery enables it to operate reliably in massive tool environments.
+\end{itemize}
+
+
+
+While Toollery focuses on inference-time mitigation, we also explore supervised fine-tuning as an alternative. As detailed in Appendix \ref{appendix_a}, fine-tuning on ScaleTool-generated data is effective but comes with significant training and deployment overheads, whereas Toollery offers a lightweight, plug-and-play solution.
+
+\section{Discussion and Future Work}
+As LLMs transition from passive text generators to active agents, their ability to select the correct tools from massive, evolving libraries becomes a fundamental bottleneck. This paper identifies and quantifies the \textit{tool pool scalability challenge}, demonstrating that candidate-set growth imposes severe pressure on LLM-based agents. ScaleTool shows that this degradation is not merely a capacity issue but a structural limitation of attending to large, noisy search spaces.
+
+
+To address this, we introduced \textbf{Toollery}, a training-free framework that aids LLM on tool selection via intent--intent matching. Our extensive evaluation confirms that Toollery consistently improves performance across diverse LLM architectures and interfaces. It proves effective in large tool candidate set, enabling even smaller LLMs to compete with larger LLM baselines. While supervised fine-tuning can also mitigate these issues (Appendix \ref{appendix_a}), Toollery offers a better trade-off by avoiding the high costs of retraining and the rigidity of static weights.
+
+The cost-benefit profile of Toollery is uniquely optimized for real-world deployment. Although the offline phase utilizes high-capacity teacher LLMs to synthesize tool manuals, these costs are amortized over the lifetime of the tool library. The true advantage is realized during online inference. Without Toollery, expanding the candidate pool from 10 to 1,000 tools results in a 35-fold increase in input tokens, pushing context lengths to $\sim80$k--$100$k. This leads to a ``performance cliff'' where accuracy drops below 60$\%$ and computational latency increases significantly. Toollery fixes the input token count at a nearly constant level by providing a compact, high-confidence candidate set. This efficiency enables smaller, low-latency models (e.g., Qwen3-4B) to operate in tool environments that were previously inaccessible, while allowing powerful LLMs to maintain peak accuracy with drastically reduced inference costs.
+
+% Several directions remain promising for future work. First, regarding the \textit{maintenance} of the Tool User Manual, we envision that dynamic maintenance can be achieved by integrating Toollery into broader Retrieval-Augmented Generation (RAG) frameworks, enabling real-time synchronization with an evolving tool library. Second, our current approach relies on general-purpose embeddings; investigating domain-adaptive encoders trained specifically for tool selection could further enhance selection precision. Finally, exploring hybrid approaches that combine Toollery's retrieval logic with lightweight adapter fine-tuning (e.g., LoRA) could offer a middle ground, balancing the flexibility of retrieval with the specialized alignment of learned parameters.
+
+Several directions remain promising for future work. First, we envision automating Tool User Manual maintenance by integrating Toollery into RAG frameworks, ensuring real-time synchronization with evolving libraries. Second, replacing general-purpose embeddings with domain-adaptive encoders trained specifically for tool selection could further enhance precision. Finally, hybridizing Toollery with lightweight adapters (e.g., LoRA) offers a promising middle ground, balancing the flexibility of retrieval with the specialized alignment of learned parameters.
+
+\clearpage
+\newpage
+\bibliography{custom}
+
+\end{document}

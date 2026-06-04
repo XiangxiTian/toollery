@@ -1,2 +1,9 @@
 # The reference implementation runs on the Python standard library.
 # Optional: install pypdf/pdfplumber only if you want to parse PDFs like the source article.
+# Optional RAG baseline backend from https://github.com/HKUDS/RAG-Anything:
+# raganything
+# lightrag-hku
+# Optional local HuggingFace embedding backend:
+# torch
+# transformers
+# sentence-transformers

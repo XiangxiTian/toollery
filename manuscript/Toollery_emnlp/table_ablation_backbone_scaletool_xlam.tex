@@ -1,0 +1,63 @@
+\begin{table*}[htb]
+\caption{\label{scaletoolresult_xlam_toollery}
+    ScaleTool-xLAM test results (main results)
+  }
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lclccclll}
+\hline
+\textbf{Model} &
+  \textbf{Overall Acc} &
+  \textbf{\[n\leq5\]} &
+  \textbf{\[n\leq10\]} &
+  \textbf{\[n\leq20\]} &
+  \textbf{\[n\leq30\]} &
+  \multicolumn{1}{c}{\textbf{\[n\leq40\]}} &
+  \multicolumn{1}{c}{\textbf{\[n\leq50\]}} &
+   \\ \hline
+Qwen3-4B (Prompt) + Toollery      & 86.40 &  &  &  &  &  &  &  \\
+Qwen3-8B (Prompt) + Toollery      & 84.00 &  &  &  &  &  &  &  \\
+DeepSeek-V3.2 (Prompt) + Toollery &       &  &  &  &  &  &  &  \\
+GPT-5 + Toollery                  &       &  &  &  &  &  &  &  \\ \hline
+GPT-5-mini (FC) + Toollery        &       &  &  &  &  &  &  &  \\
+Qwen3-8B (FC) + Toollery          & 86.80 &  &  &  &  &  &  &  \\
+Qwen3-235B (FC) + Toollery        & 88.40 &  &  &  &  &  &  &  \\
+ToolACE-2-8B (FC) + Toollery      &       &  &  &  &  &  &  &  \\ \hline
+\end{tabular}
+}
+\vskip -0.1in
+\end{table*}
+
+
+
+% \begin{table}[t]
+%   \caption{ScaleTool-xLAM test results (main results)}
+%   \label{scaletoolresult_xlam_toollery}
+%   \begin{center}
+%     \begin{small}
+%       \begin{sc}
+%         \begin{tabular}{lclccclll}
+%         \toprule
+%         \textbf{Model} &
+%           \textbf{Overall Acc} &
+%           \textbf{\[n\leq5\]} &
+%           \textbf{\[n\leq10\]} &
+%           \textbf{\[n\leq20\]} &
+%           \textbf{\[n\leq30\]} &
+%           \multicolumn{1}{c}{\textbf{\[n\leq40\]}} &
+%           \multicolumn{1}{c}{\textbf{\[n\leq50\]}} &
+%            \\ \midrule
+%         Qwen3-4B (Prompt) + Toollery      & 86.40 &  &  &  &  &  &  &  \\
+%         Qwen3-8B (Prompt) + Toollery      & 84.00 &  &  &  &  &  &  &  \\
+%         DeepSeek-V3.2 (Prompt) + Toollery &       &  &  &  &  &  &  &  \\
+%         GPT-5 + Toollery                  &       &  &  &  &  &  &  &  \\ \midrule
+%         GPT-5-mini (FC) + Toollery        &       &  &  &  &  &  &  &  \\
+%         Qwen3-8B (FC) + Toollery          & 86.80 &  &  &  &  &  &  &  \\
+%         Qwen3-235B (FC) + Toollery        & 88.40 &  &  &  &  &  &  &  \\
+%         ToolACE-2-8B (FC) + Toollery      &       &  &  &  &  &  &  &  \\ \bottomrule
+%         \end{tabular}
+%       \end{sc}
+%     \end{small}
+%   \end{center}
+%   \vskip -0.1in
+% \end{table}

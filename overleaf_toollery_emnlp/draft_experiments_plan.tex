@@ -1,0 +1,481 @@
+\section{Experiments}
+\label{sec:experiments}
+
+This section evaluates Toollery as a self-verified query retrieval framework for
+skill and atomic-skill selection. We use
+\emph{skill} as the general interface unit and \emph{atomic skill} for the original
+tool-style APIs whose behavior can be described by a name, natural-language
+description, schema, and optional manual. The central question is not whether a
+larger prompt can contain more generated text, but whether self-verified usage
+queries can build a better retrieval index while keeping the final LLM decision
+prompt compact. Unless otherwise noted, generated and verified queries are used
+only inside the retrieval index. The final LLM selector receives only the top-$k$
+compact candidate skill specifications, not the generated query pool.
+
+\subsection{Research Questions}
+\label{subsec:rq}
+
+\paragraph{RQ1: Selection accuracy.}
+Does Toollery improve skill selection over raw full-text retrieval, dense
+retrieval, reranking, SkillRouter-style pipelines, and RAG-style baselines?
+
+\paragraph{RQ2: Benefit of query augmentation.}
+How much of the gain comes from adding generated usage queries to the index, and
+how much comes specifically from Toollery's round-trip self-verification?
+
+\paragraph{RQ3: Skill and atomic-skill generality.}
+Does the same retrieval and verification design work on both SkillBench-style
+skill routing tasks and the original atomic tool benchmarks such as HammerBench,
+xLAM, BFCL, and ScaleTool?
+
+\paragraph{RQ4: Efficiency under large candidate pools.}
+Can Toollery reduce final-prompt tokens, LLM selection latency, and monetary cost
+by retrieving a compact subset before the LLM sees the candidates, while
+preserving or improving selection quality?
+
+\paragraph{RQ5: Robustness to distractors and scale.}
+How does performance change as the candidate skill pool grows from small
+benchmark pools to large mixed pools with many semantically similar distractors?
+
+\subsection{Benchmarks}
+\label{subsec:benchmarks}
+
+\paragraph{SkillBench / SkillRouter-compatible track.}
+This track evaluates Toollery on skill routing datasets where each instance
+contains a user request and one or more gold skills. To make the comparison
+compatible with SkillRouter-style evaluation, we report retrieval-oriented
+metrics such as Hit@$k$, Recall@$k$, MRR, and nDCG whenever the annotations
+support ranked relevance. When executable task environments or validated final
+answers are available, we additionally report final task success after the LLM
+selects from the retrieved candidate subset.
+
+\paragraph{Atomic tool/skill track.}
+This track keeps the original Toollery experiments on HammerBench, xLAM, BFCL,
+and ScaleTool, but reframes each tool as an atomic skill. Each atomic skill is
+represented by its original metadata, including name, description, schema,
+manual, and example fields when available. We retain the original evaluation
+metrics from the paper for comparability, and add retrieval metrics plus
+efficiency measurements to isolate the effect of candidate pruning.
+
+\paragraph{Large-pool and distractor settings.}
+For both tracks, we create controlled scale settings by increasing the number of
+candidate skills available at inference time. Pool sizes should include the
+native benchmark pool and larger mixed pools, for example $N \in \{100, 500,
+1{,}000, 5{,}000, 10{,}000\}$ when data availability allows. We also create
+hard-distractor pools by mixing skills with overlapping names, descriptions,
+schemas, or task domains. This setting tests whether verified queries improve
+grounding beyond surface-level name and description matching.
+
+\subsection{Baselines and Settings}
+\label{subsec:baselines}
+
+We separate method families from information settings. This avoids treating raw
+metadata retrieval as if it were a Toollery variant. Toollery is defined by query-level
+retrieval plus self-verification; raw metadata retrieval is a baseline setting,
+not a Toollery variant.
+
+\paragraph{Information settings.}
+\textbf{Raw Baselines} use only the original skill metadata, such as name,
+description, schema, manual, body, and examples. \textbf{Query-Augmented
+Baselines} add the same generated usage queries to each baseline's searchable
+index to test whether query generation alone improves retrieval. \textbf{
+Unverified Toollery} retrieves over generated usage queries and aggregates
+query-level matches to skill-level candidates, but does not apply round-trip
+self-verification. \textbf{Full Toollery} generates candidate usage queries,
+filters them through round-trip self-verification, indexes only verified queries,
+retrieves matching verified queries at inference time, aggregates them into a
+top-$k$ skill subset, and sends only compact candidate skill specifications to
+the final LLM selector.
+
+\paragraph{Retrieval baselines.}
+We include BM25 over raw skill text, dense retrieval over raw skill text, and a
+retrieve-and-rerank pipeline that mirrors the SkillRouter family when model
+access and training data are available. For the SkillBench-compatible track, the
+SkillRouter comparison should use the official encoder and reranker setup where
+possible. If reproducing the full training recipe is infeasible, we report a
+frozen off-the-shelf dense retriever plus reranker and label it as an adapted
+SkillRouter-style baseline rather than the official SkillRouter model.
+
+\paragraph{RAGAnything baseline.}
+RAGAnything is adapted as a generic retrieval-over-documentation baseline. For
+raw settings, it indexes each skill's original documentation fields. For
+query-augmented settings, it receives the same generated queries used by the
+other baselines. This comparison tests whether Toollery's gain comes from
+generic document retrieval or from the verified query-to-skill retrieval
+structure.
+
+\paragraph{LLM selector baselines.}
+For small pools, we include a direct LLM selector that sees all candidate skill
+specifications. For larger pools, the all-candidate prompt may exceed context or
+be economically unrealistic; in that case we report the maximum feasible pool
+size and compare against retrieval-preselected LLM selection. The final selector
+model, prompt template, temperature, maximum output length, and candidate format
+must be fixed across methods.
+
+\subsection{Metrics}
+\label{subsec:metrics}
+
+\paragraph{Retrieval and routing metrics.}
+For single-gold tasks, we report Hit@$k$ for $k \in \{1, 3, 5, 10, 20\}$ and
+MRR. For multi-gold tasks, we report Recall@$k$ and nDCG@$k$ when graded or
+multi-relevance labels are available. We also report candidate-set recall before
+the final LLM selection step, because Toollery's first-stage objective is to
+retain the gold skill inside a compact subset.
+
+\paragraph{Final task metrics.}
+On executable or answer-validated benchmarks, we report final task success,
+exact match, pass rate, or the benchmark's official score. The key distinction is
+between retrieval success and end-to-end success: a method can retrieve the gold
+skill but fail if the final LLM chooses incorrectly or formats the call
+incorrectly.
+
+\paragraph{Efficiency metrics.}
+We measure the number of candidates sent to the final LLM, final prompt tokens,
+final completion tokens, retrieval latency, reranking latency, final LLM
+selection latency, total inference latency, and estimated cost per 1,000 user
+queries. We also report compression ratios relative to the direct all-candidate
+LLM selector:
+\[
+\mathrm{TokenCompression}
+= \frac{\mathrm{PromptTokens}_{\mathrm{all}}}
+{\mathrm{PromptTokens}_{\mathrm{method}}},
+\quad
+\mathrm{LatencyCompression}
+= \frac{\mathrm{LLMLatency}_{\mathrm{all}}}
+{\mathrm{LLMLatency}_{\mathrm{method}}}.
+\]
+When all-candidate prompting is infeasible for large pools, we use the largest
+feasible direct-LLM pool as an upper-bound reference and clearly mark larger
+pool comparisons as retrieval-only or retrieval-plus-LLM-subset evaluation.
+
+\paragraph{Verification metrics.}
+For the offline query construction stage, we report the number of generated
+queries per skill, the self-verification acceptance rate, the average number of
+verified queries per skill, the percentage of skills with zero verified queries,
+offline construction cost, and offline construction latency. These metrics
+separate one-time indexing cost from per-query serving cost.
+
+\subsection{Ablations}
+\label{subsec:ablations}
+
+\paragraph{Generated queries without verification.}
+We compare Raw Baselines, Query-Augmented Baselines, Unverified Toollery, and
+Full Toollery. This is the main ablation requested by the current paper
+positioning. If generated queries help every method, Query-Augmented Baselines
+should improve over Raw Baselines. If round-trip self-verification removes noisy
+or misleading generated queries, Full Toollery should improve over Unverified
+Toollery, especially in hard-distractor settings.
+
+\paragraph{Verification strictness.}
+We vary the round-trip self-verification threshold or acceptance rule. Candidate
+queries can be accepted if the verifier recovers the source skill at top-1,
+top-3, or top-5, or if the verifier assigns a score above a calibrated
+threshold. This ablation traces the tradeoff between coverage and precision in
+the verified query index.
+
+\paragraph{Number of generated queries.}
+We vary the number of generated candidate queries per skill before verification,
+for example $m \in \{5, 10, 20, 40\}$. The expected analysis is whether larger
+query pools improve recall until verification or retrieval becomes saturated.
+
+\paragraph{Candidate subset size.}
+We vary the number of compact candidates sent to the final LLM, for example
+$k \in \{1, 3, 5, 10, 20\}$. This ablation directly measures the quality-cost
+frontier: smaller $k$ should reduce tokens and LLM latency, while larger $k$
+should increase candidate-set recall and potentially final task success.
+
+\paragraph{Index field ablation.}
+We compare indexes over name-only, name plus description, full raw text, raw text
+plus generated queries, generated queries only, and verified queries only. This
+helps position Toollery against SkillRouter-style full-text retrieval and tests
+whether verified query text captures usage semantics that raw documentation
+misses.
+
+\paragraph{Aggregation ablation.}
+Because Toollery retrieves at the query level and then aggregates to the skill
+level, we compare aggregation rules such as max score, mean top-$r$ score, sum of
+top-$r$ scores, reciprocal-rank fusion, and learned lightweight aggregation if
+training data are available.
+
+\subsection{Efficiency, Token, and Latency Analysis}
+\label{subsec:efficiency}
+
+The efficiency claim should be evaluated as a first-class result, not a side
+note. Toollery may build a larger offline retrieval index, but that index is not
+included in the final LLM prompt. At serving time, the system retrieves verified
+queries, maps them back to a small skill subset, and sends only compact
+candidate specifications to the final LLM selector. Therefore the online token
+cost scales with $k$, not with the full number of indexed queries or the full
+skill pool.
+
+For each method and pool size, we log:
+\begin{itemize}
+    \item \textbf{Index size:} total indexed documents, average indexed entries
+    per skill, and average indexed tokens per skill.
+    \item \textbf{Final prompt size:} number of candidates sent to the LLM and
+    prompt tokens after candidate pruning.
+    \item \textbf{Latency:} retrieval latency, reranking latency, final LLM
+    selection latency, and total latency.
+    \item \textbf{Cost:} estimated per-query LLM cost and total cost per 1,000
+    queries, separating offline indexing cost from online serving cost.
+    \item \textbf{Quality-efficiency frontier:} final success or Hit@$k$ versus
+    prompt tokens and total latency.
+\end{itemize}
+
+The main efficiency comparison should include three practically important
+systems: direct all-candidate LLM selection, SkillRouter/RAG-style retrieval plus
+LLM selection over a subset, and Full Toollery retrieval plus LLM selection over
+a subset. This distinguishes prompt compression from retrieval quality.
+
+\subsection{Expected Tables}
+\label{subsec:expected-tables}
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{lcccccc}
+\hline
+\textbf{Setting} &
+\textbf{Raw fields} &
+\textbf{Generated queries} &
+\textbf{Self-verification} &
+\textbf{Retrieval unit} &
+\textbf{Final LLM input} &
+\textbf{Purpose} \\
+\hline
+Raw Baselines &
+\checkmark & -- & -- &
+Skill document &
+Top-$k$ compact specs &
+Raw metadata retrieval \\
+Query-Augmented Baselines &
+\checkmark & \checkmark & -- &
+Skill document or query-augmented document &
+Top-$k$ compact specs &
+Effect of generation alone \\
+Unverified Toollery &
+Optional & \checkmark & -- &
+Generated query &
+Top-$k$ compact specs &
+Query-level retrieval without filtering \\
+Full Toollery &
+Optional & \checkmark & \checkmark &
+Verified query &
+Top-$k$ compact specs &
+Verified query index plus compact LLM selection \\
+\hline
+\end{tabular}
+\caption{Experimental settings. Generated or verified queries are indexed for
+retrieval but are not copied into the final LLM prompt. The final selector sees
+only compact specifications for the retrieved top-$k$ skills.}
+\label{tab:settings-overview}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{llcccccc}
+\hline
+\textbf{Track} &
+\textbf{Method} &
+\textbf{Hit@1} &
+\textbf{Hit@5} &
+\textbf{Recall@10} &
+\textbf{MRR} &
+\textbf{nDCG@10} &
+\textbf{Final Success} \\
+\hline
+SkillBench & BM25 (Raw) & -- & -- & -- & -- & -- & -- \\
+SkillBench & Dense Retriever (Raw) & -- & -- & -- & -- & -- & -- \\
+SkillBench & SkillRouter / SkillRouter-style & -- & -- & -- & -- & -- & -- \\
+SkillBench & RAGAnything (Raw) & -- & -- & -- & -- & -- & -- \\
+SkillBench & RAGAnything (+ generated queries) & -- & -- & -- & -- & -- & -- \\
+SkillBench & Unverified Toollery & -- & -- & -- & -- & -- & -- \\
+SkillBench & Full Toollery & -- & -- & -- & -- & -- & -- \\
+\hline
+Atomic skills & BM25 (Raw) & -- & -- & -- & -- & -- & -- \\
+Atomic skills & Dense Retriever (Raw) & -- & -- & -- & -- & -- & -- \\
+Atomic skills & RAGAnything (Raw) & -- & -- & -- & -- & -- & -- \\
+Atomic skills & RAGAnything (+ generated queries) & -- & -- & -- & -- & -- & -- \\
+Atomic skills & Unverified Toollery & -- & -- & -- & -- & -- & -- \\
+Atomic skills & Full Toollery & -- & -- & -- & -- & -- & -- \\
+\hline
+\end{tabular}
+\caption{Main selection and end-to-end results. Use SkillBench-compatible
+metrics on the skill-routing track and the original benchmark official score for
+the atomic-skill track when available. All entries are placeholders until the
+experiments are run.}
+\label{tab:main-selection-results}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{lccccccc}
+\hline
+\textbf{Method / Ablation} &
+\textbf{Gen. queries / skill} &
+\textbf{Accepted / skill} &
+\textbf{Accept rate} &
+\textbf{Zero-query skills} &
+\textbf{Hit@5} &
+\textbf{Final Success} &
+\textbf{Offline Cost} \\
+\hline
+Raw Baseline & 0 & 0 & -- & -- & -- & -- & -- \\
+Query-Augmented Baseline & $m$ & $m$ & 100\% & 0\% & -- & -- & -- \\
+Unverified Toollery & $m$ & $m$ & 100\% & 0\% & -- & -- & -- \\
+Full Toollery (top-1 verification) & $m$ & -- & -- & -- & -- & -- & -- \\
+Full Toollery (top-3 verification) & $m$ & -- & -- & -- & -- & -- & -- \\
+Full Toollery (score threshold) & $m$ & -- & -- & -- & -- & -- & -- \\
+\hline
+\end{tabular}
+\caption{Verification ablation. This table isolates the contribution of
+round-trip self-verification from query generation itself. Offline cost should be
+reported separately from online inference cost.}
+\label{tab:verification-ablation}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{lcccccccc}
+\hline
+\textbf{Method} &
+\textbf{Pool size} &
+\textbf{Cand. to LLM} &
+\textbf{Prompt toks} &
+\textbf{Tok. comp.} &
+\textbf{Retr. ms} &
+\textbf{Rerank ms} &
+\textbf{LLM ms} &
+\textbf{Cost / 1k} \\
+\hline
+Direct all-candidate LLM & -- & -- & -- & 1.0$\times$ & -- & -- & -- & -- \\
+BM25 + LLM subset & -- & $k$ & -- & -- & -- & -- & -- & -- \\
+SkillRouter-style + LLM subset & -- & $k$ & -- & -- & -- & -- & -- & -- \\
+RAGAnything + LLM subset & -- & $k$ & -- & -- & -- & -- & -- & -- \\
+Unverified Toollery + LLM subset & -- & $k$ & -- & -- & -- & -- & -- & -- \\
+Full Toollery + LLM subset & -- & $k$ & -- & -- & -- & -- & -- & -- \\
+\hline
+\end{tabular}
+\caption{Token, latency, and cost compression. Generated and verified queries
+increase the retrieval index size but do not enter the final LLM prompt. The
+online LLM prompt contains only the compact specifications of the retrieved
+top-$k$ candidates.}
+\label{tab:token-latency-compression}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{lcccccc}
+\hline
+\textbf{Method} &
+\textbf{$N=100$} &
+\textbf{$N=500$} &
+\textbf{$N=1{,}000$} &
+\textbf{$N=5{,}000$} &
+\textbf{$N=10{,}000$} &
+\textbf{Avg. prompt toks} \\
+\hline
+BM25 (Raw) & -- & -- & -- & -- & -- & -- \\
+Dense Retriever (Raw) & -- & -- & -- & -- & -- & -- \\
+RAGAnything (+ generated queries) & -- & -- & -- & -- & -- & -- \\
+SkillRouter-style & -- & -- & -- & -- & -- & -- \\
+Unverified Toollery & -- & -- & -- & -- & -- & -- \\
+Full Toollery & -- & -- & -- & -- & -- & -- \\
+\hline
+\end{tabular}
+\caption{Scaling curve under increasing candidate-pool size. Each cell can
+report Hit@5, Recall@10, or final success depending on the benchmark. A companion
+figure should plot quality versus pool size and quality versus final prompt
+tokens.}
+\label{tab:scaling-curve}
+\end{table*}
+
+\subsection{Experiments to Run}
+\label{subsec:experiments-to-run}
+
+\begin{enumerate}
+    \item Build the SkillBench / SkillRouter-compatible evaluation pipeline:
+    normalize skill metadata, define gold labels, implement Hit@$k$,
+    Recall@$k$, MRR, nDCG, and final task success when supported.
+    \item Re-run the original Toollery benchmark suite on HammerBench, xLAM,
+    BFCL, and ScaleTool with terminology changed from tool to atomic skill.
+    \item Implement Raw Baselines for BM25, dense retrieval, reranker retrieval,
+    RAGAnything, and direct LLM selection where context length permits.
+    \item Generate the shared query pool for every skill. Store the generated
+    queries once and reuse the identical pool for Query-Augmented Baselines,
+    Unverified Toollery, and Full Toollery.
+    \item Run Query-Augmented Baselines by adding the shared generated queries to
+    each baseline's searchable index without using Toollery's round-trip
+    verification filter.
+    \item Run Unverified Toollery with query-level retrieval and skill-level
+    aggregation, using generated queries but no self-verification.
+    \item Run Full Toollery with round-trip self-verification, a verified query
+    index, query-level retrieval, skill-level aggregation, and compact top-$k$
+    final LLM selection.
+    \item Add RAGAnything on the original atomic-skill benchmarks in both raw and
+    query-augmented forms.
+    \item If feasible, evaluate official SkillRouter on SkillBench. If not
+    feasible, clearly label the reproduced comparison as SkillRouter-style and
+    document the encoder, reranker, and training or zero-shot setup.
+    \item Measure token count, retrieval latency, reranking latency, final LLM
+    latency, total latency, and estimated cost for each method and pool size.
+    \item Run ablations over verification strictness, number of generated
+    queries per skill, candidate subset size $k$, index fields, and aggregation
+    rule.
+    \item Run scale and hard-distractor evaluations by increasing candidate pool
+    size and adding semantically similar skills.
+\end{enumerate}
+
+\subsection{Implementation Notes}
+\label{subsec:implementation-notes}
+
+\paragraph{Fair query augmentation.}
+The generated query pool must be identical across Query-Augmented Baselines,
+Unverified Toollery, and Full Toollery before verification. This controls for the
+benefit of generation itself. Full Toollery may remove queries through
+self-verification, but it should not receive additional private generated
+queries that are unavailable to the ablations.
+
+\paragraph{No generated queries in final prompts.}
+For all Toollery variants and query-augmented baselines, final LLM prompts should
+contain only compact candidate skill specifications. If a baseline uses
+generated queries in the final prompt, report it as a separate prompt-expansion
+baseline because it changes the token budget and weakens the compression claim.
+
+\paragraph{Prompt and model control.}
+Use the same final selector model, system prompt, candidate formatting,
+temperature, and decoding parameters for all methods. The only allowed
+difference should be the retrieved candidate subset and its order.
+
+\paragraph{Latency measurement.}
+Measure retrieval, reranking, and final LLM latency separately. Report mean,
+median, and p95 if possible. Offline generation and verification costs should be
+reported separately from online serving latency.
+
+\paragraph{Index construction.}
+Store raw skill documents, generated queries, and verified queries as separate
+index fields or separate indexes. This makes it possible to run field ablations
+without regenerating data.
+
+\paragraph{RAGAnything adaptation.}
+Document exactly how each skill is serialized into RAGAnything documents and how
+retrieved chunks are mapped back to skill IDs. If RAGAnything retrieves chunks
+rather than skills, aggregate chunk scores to skill scores before top-$k$ final
+LLM selection.
+
+\paragraph{Statistical reporting.}
+Run at least three seeds for query generation and LLM selection when budget
+allows. Report confidence intervals or bootstrap standard errors for main
+results. If generation is expensive, fix one generated query pool and vary only
+retrieval and final-selection seeds, while explicitly stating this limitation.
+
+\paragraph{Failure analysis.}
+Sample failures where Full Toollery loses to Query-Augmented Baselines or raw
+retrieval. Categorize them into missing generated coverage, over-strict
+verification, ambiguous gold labels, schema-level mismatch, and final LLM
+selection error. This analysis will help explain whether verification improves
+precision at the cost of recall.

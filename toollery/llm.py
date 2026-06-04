@@ -3,12 +3,18 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+import time
+import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
 from typing import Any
 
 from .schemas import ToolCall, ToolSpec
 from .text import term_overlap, tokenize, top_terms
+
+
+_USAGE_LOG_LOCK = threading.Lock()
 
 
 class Teacher(ABC):
@@ -90,12 +96,18 @@ class OpenAICompatibleLLM(Teacher, Verifier, FinalSelector):
         model: str | None = None,
         api_key: str | None = None,
         base_url: str | None = None,
+        extra_body: dict[str, Any] | None = None,
         timeout: int = 60,
     ) -> None:
-        self.model = model or os.getenv("OPENAI_MODEL", "gpt-5-mini")
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self.base_url = (base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
-        self.timeout = timeout
+        self.model = model or os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL", "gpt-5-mini")
+        self.api_key = api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+        self.base_url = (
+            base_url
+            or os.getenv("LLM_BASE_URL")
+            or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        ).rstrip("/")
+        self.extra_body = extra_body if extra_body is not None else _json_env("LLM_EXTRA_BODY")
+        self.timeout = int(os.getenv("LLM_TIMEOUT", timeout))
 
     def generate_queries(self, tool: ToolSpec, count: int) -> list[str]:
         prompt = (
@@ -132,15 +144,17 @@ class OpenAICompatibleLLM(Teacher, Verifier, FinalSelector):
         except Exception:
             return HeuristicFinalSelector().choose_tool(query, tools)
 
-    def _chat(self, prompt: str) -> str:
+    def _chat(self, prompt: str, stage: str | None = None, metadata: dict[str, Any] | None = None) -> str:
         if not self.api_key:
-            raise RuntimeError("OPENAI_API_KEY is required for OpenAICompatibleLLM")
-        body = json.dumps(
-            {
-                "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
-            }
-        ).encode("utf-8")
+            raise RuntimeError("LLM_API_KEY or OPENAI_API_KEY is required for OpenAICompatibleLLM")
+        if self.api_key.startswith("PASTE_") or self.api_key.endswith("_HERE"):
+            raise RuntimeError("LLM api_key still looks like a placeholder; put your real provider API key in config.")
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        payload.update(self.extra_body)
+        body = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
             f"{self.base_url}/chat/completions",
             data=body,
@@ -150,9 +164,74 @@ class OpenAICompatibleLLM(Teacher, Verifier, FinalSelector):
             },
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=self.timeout) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        return payload["choices"][0]["message"]["content"]
+        started = time.perf_counter()
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:1000]
+            raise RuntimeError(
+                f"LLM request failed with HTTP {exc.code} {exc.reason}. "
+                f"model={self.model!r} base_url={self.base_url!r}. Response: {detail}"
+            ) from exc
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        content = payload["choices"][0]["message"]["content"]
+        self._log_usage(
+            stage=stage,
+            metadata=metadata,
+            usage=payload.get("usage"),
+            latency_ms=latency_ms,
+            response_chars=len(content),
+            prompt_chars=len(prompt),
+        )
+        return content
+
+    def _log_usage(
+        self,
+        stage: str | None,
+        metadata: dict[str, Any] | None,
+        usage: Any,
+        latency_ms: float,
+        response_chars: int,
+        prompt_chars: int,
+    ) -> None:
+        log_path = os.getenv("LLM_USAGE_LOG")
+        if not log_path:
+            return
+        row: dict[str, Any] = {
+            "stage": stage or "chat",
+            "model": self.model,
+            "base_url": self.base_url,
+            "latency_ms": latency_ms,
+            "prompt_chars": prompt_chars,
+            "response_chars": response_chars,
+        }
+        if metadata:
+            row.update(metadata)
+        if isinstance(usage, dict):
+            row.update(
+                {
+                    "prompt_tokens": usage.get("prompt_tokens"),
+                    "completion_tokens": usage.get("completion_tokens"),
+                    "total_tokens": usage.get("total_tokens"),
+                }
+            )
+        with _USAGE_LOG_LOCK:
+            with open(log_path, "a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def _json_env(name: str) -> dict[str, Any]:
+    value = os.getenv(name)
+    if not value:
+        return {}
+    try:
+        data = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{name} must be valid JSON") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError(f"{name} must decode to a JSON object")
+    return data
 
 
 def _extract_arguments(query: str, schema: dict[str, Any]) -> dict[str, Any]:

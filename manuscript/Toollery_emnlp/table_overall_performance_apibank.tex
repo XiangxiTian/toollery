@@ -1,0 +1,45 @@
+% \begin{table*}[htb]
+% \centering
+% \resizebox{\columnwidth}{!}{
+% \begin{tabular}{lccc}
+% \hline
+% \textbf{Model}               & \textbf{Call} & \textbf{Retrieval + Call} \\ \hline
+% Qwen3-4B (Prompt)            & 75.94       &     63.33                \\
+% Qwen3-8B (Prompt)            &  76.19         &  61.11                    \\
+% DeepSeek-V3.2 (Prompt)       &  71.68        &  61.11                    \\ 
+% ToolACE-2-8B (FC)            & 75.94         & 47.41                     \\ 
+% ScaleTool-8B (FC)            & \textbf{76.44}         & \textbf{64.44}    \\ \hline
+% \end{tabular}
+% }
+% \caption{\label{apibankResult}
+%     API-bank test results (main results)
+%   }
+% \end{table*}
+
+
+\begin{table*}[h]
+\caption{\label{apibankResult-baseline}
+    API-bank test results (main results)
+  }
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{clcc}
+\hline
+\multicolumn{2}{c}{Model}                               & Call  & Retrieval+Call \\\hline
+\multirow{5}{*}{Close-source}  & gpt-4-0613            & 75.94& 48.89         \\
+                               & gpt-4-turbo-2024-04-09& 72.43& 39.26         \\
+                               & gpt-4o-mini-2024-07-18& 74.69& 45.93         \\
+                               & gpt-4o-2024-05-13     & 76.19& 42.96         \\
+                               & GPT-5-mini            & 78.50& 54.00         \\ \hline
+\multirow{7}{*}{Open-source}   & Qwen3-4B              & 75.94& 43.33         \\
+                               & Qwen3-8B              & 76.19& 41.11         \\
+                               & LLaMA-3.1-8B-Instruct & 71.18& 37.04         \\
+                               & ToolACE-2-8B          & 75.94& 47.41         \\
+                               & DeepSeek-V3.2         & 71.68& 41.11         \\
+                               & xLAM-7b-fc-r          & 32.83& 21.48         \\
+                               & ScaleTool-8B          & 76.44& 51.44         \\
+                               \hline
+\end{tabular}
+}
+\vskip -0.1in
+\end{table*}

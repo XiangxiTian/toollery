@@ -1,0 +1,36 @@
+{
+  "deepseek": {
+    "api_key_env": "DASHSCOPE_API_KEY",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen3-max",
+    "timeout": 120,
+    "extra_body": {
+      "thinking": {
+        "type": "disabled"
+      }
+    }
+  },
+  "embedding": {
+    "backend": "openai-compatible",
+    "api_key_env": "DASHSCOPE_API_KEY",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "text-embedding-v4",
+    "dim": 1024,
+    "batch_size": 10,
+    "timeout": 120,
+    "max_retries": 5
+  },
+  "bfclscaled_rag": {
+    "scaled_data": "bfcl_scaled_data.jsonl",
+    "compare_to": "bfcl_scaled_toollery_predictions.jsonl",
+    "top_k": 3,
+    "backend": "raganything",
+    "rag_working_dir": ".raganything_bfclscaled",
+    "output_dir": "outputs/rag_bfclscaled",
+    "predictions_out": "retrieval/bfclscaled_rag_predictions.jsonl",
+    "metrics_out": "metrics/bfclscaled_rag_metrics.json",
+    "compare_out": "comparison/bfclscaled_toollery_vs_rag.jsonl",
+    "summary_out": "summary.json",
+    "limit_samples": null
+  }
+}

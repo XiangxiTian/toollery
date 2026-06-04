@@ -1,0 +1,37 @@
+\begin{table*}[htb]
+\caption{\label{bfclResult-overallPerformance-Baselines}
+    BFCL V4 benchmark results (main results), updated on 12/26/2025.
+  }
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccc}
+\hline
+\multirow{2}{*}{\textbf{Model}} &
+  \multirow{2}{*}{\textbf{Overall Accuracy}} &
+  \multicolumn{2}{c}{\textbf{Single Turn (Multiple)}} &
+  \multicolumn{2}{c}{\textbf{Hallucination}} \\
+ &
+   &
+  \textbf{Non-Live} &
+  \textbf{Live} &
+  \textbf{Relevance} &
+  \textbf{Irrelevance} \\ \hline
+Qwen3-4B (Prompt)       & 82.14 & 91.00 & 74.17 & 87.50  & 75.87 \\
+Qwen3-8B (Prompt)       & 82.80 & 95.00 & 78.92 & 75.00  & 82.27 \\
+DeepSeek-V3.2 (Prompt)  & 81.87 & 92.00 & 74.74 & 93.75  & 67.00 \\
+GPT-5-mini (Prompt)     & 70.78 & 72.50 & 61.16 & 93.75  & 55.71 \\ \hline
+GPT-5-mini (FC)         & 70.13 & 69.00 & 58.02 & 62.50  & 91.01 \\
+Qwen3-8B (FC)           & 87.25 & 96.50 & 79.68 & 93.75  & 79.07 \\
+Qwen3-235B (FC)         & 69.33 & 36.50 & 71.60 & 87.50  & 81.73 \\
+ToolACE-2-8B (FC)       & 84.05 & 91.00 & 79.39 & 75.00  & 90.79 \\ \hline
+ScaleTool-8B            & 89.06 & 95.50 & 78.25 & 100.00 & 82.50 \\
+ScaleTool-8B + Toollery & 88.41 & 95.21 & 76.40 & 100.00 & 82.01 \\ \hline
+\end{tabular}
+}
+\vskip -0.1in
+\end{table*}
+
+
+
+
+

@@ -1,0 +1,35 @@
+\begin{table*}[htb]
+\caption{\label{scaletoolresult_xlam-baselines}
+    End-to-end atomic-tool selection accuracy on ScaleTool-xLAM under increasing candidate-pool sizes. These results measure downstream LLM selection after candidate compression, not standalone retrieval quality.
+  }
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccccc}
+\hline \hline
+\textbf{Model} &
+  \textbf{$\leq$ 10} &
+  \textbf{20} &
+  \textbf{30} &
+  \textbf{40} &
+  \textbf{50} &
+  \textbf{100} &
+  \textbf{500} &
+  \textbf{1000} \\ \hline \hline
+\textbf{Qwen3-4B (Prompt)}                  & 86.33 & 92.00 & 84.40 & 87.20 & 82.00 & 61.59 & 39.88 & \textbackslash{} \\
+\textbf{Qwen3-4B (Prompt) + Toollery}       & 88.00 $\Uparrow$ & 92.00  & 88.80 $\Uparrow$ & 91.40 $\Uparrow$ & 91.40 $\Uparrow$ & 90.71 $\Uparrow$ & 81.25 $\Uparrow$ & 72.00 $\Uparrow$            \\ \hline
+\textbf{Qwen3-8B (Prompt)}                  & 90.33 & 83.00 & 87.20 & 88.60 & 80.40 & 66.31 & 41.25 & \textbackslash{} \\
+\textbf{Qwen3-8B (Prompt) + Toollery}       & 88.33 & 89.80 $\Uparrow$ & 91.20 $\Uparrow$ & 88.20 & 90.00 $\Uparrow$ & 90.00 $\Uparrow$ & \textbf{87.50} $\Uparrow$ & 78.95 $\Uparrow$            \\ \hline
+\textbf{DeepSeek V3.2  (Prompt)}            & 88.67 & 93.60 & 95.00 & 92.60 & 89.20 & 85.00 & 83.75 & 16.56            \\
+\textbf{DeepSeek V3.2  (Prompt) + Toollery} & 90.67 $\Uparrow$ & 94.40 $\Uparrow$ & 93.20 & \textbf{92.80} $\Uparrow$ & \textbf{96.00} $\Uparrow$ & 90.00 $\Uparrow$ & 86.25 $\Uparrow$ & 79.47 $\Uparrow$            \\ \hline
+\textbf{GPT-5-mini  (Prompt)}               & 88.67 & 92.00 & 92.80 & 92.00 & 89.40 & 84.13 & 80.50 & 71.59            \\
+\textbf{GPT-5-mini  (Prompt) + Toollery}    & \textbf{91.67} $\Uparrow$  & 91.40 & \textbf{95.40} $\Uparrow$  & 91.40 & 90.20 $\Uparrow$  & 89.56 $\Uparrow$  & 81.50 $\Uparrow$& \textbf{79.64} $\Uparrow$           \\ \hline
+\textbf{GPT-5-mini (FC)}                    & 91.00 & 89.40 & 94.00 & 89.80 & 87.20 & 70.00 & 42.50 & 11.37            \\
+\textbf{GPT-5-mini (FC) + Toollery}         & 91.33 $\Uparrow$ & 91.80 $\Uparrow$ & 93.20 & 91.60 $\Uparrow$ & 88.80 $\Uparrow$ & 90.51 $\Uparrow$ & 73.75 $\Uparrow$ & 69.86 $\Uparrow$            \\ \hline
+\textbf{Qwen3-8B (FC)}                      & 89.33 & 86.20 & 90.60 & 92.40 & 86.00 & 68.28 & 47.50 & \textbackslash{} \\
+\textbf{Qwen3-8B (FC) + Toollery}           & 90.67 $\Uparrow$ & 90.80 $\Uparrow$ & 93.60 $\Uparrow$ & 90.20 & 90.40 $\Uparrow$ & \textbf{91.06} $\Uparrow$ & 81.25 $\Uparrow$ & 73.54 $\Uparrow$            \\ \hline
+\textbf{Qwen3-235B (FC)}                    & 80.00 & 91.40 & 93.80 & 92.40 & 89.40 & 87.16 & 76.25 & 33.21            \\
+\textbf{Qwen3-235B (FC) + Toollery}         & 90.00 $\Uparrow$ & \textbf{94.80} $\Uparrow$ & 91.60 & 92.60 $\Uparrow$ & 92.20 $\Uparrow$ & 90.83 $\Uparrow$ & 81.25 $\Uparrow$ & 77.19 $\Uparrow$            \\ \hline \hline
+\end{tabular}
+}
+\vskip -0.1in
+\end{table*}

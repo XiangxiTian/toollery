@@ -1,0 +1,307 @@
+\documentclass[11pt]{article}
+
+\usepackage[review]{acl}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{inconsolata}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{multirow}
+
+\title{Toollery: Self-Verified Query Retrieval for Scalable Tool and Skill Selection}
+
+\author{Xiangxi Tian \\
+  Huawei \\
+  \texttt{xiangxitian1@huawei.com} \\\And
+  Ran Guan \\
+  Huawei \\
+  \texttt{guanran@huawei.com} \\}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+LLM agents increasingly choose among large libraries of skills, where each skill may be a reusable procedure or an \emph{atomic skill} such as a tool/API with a name, description, and schema. Prompting the LLM with all candidates scales poorly in tokens, latency, and accuracy. We present \textbf{Toollery}, a self-verified query retrieval framework for scalable skill selection. Offline, Toollery generates user-like candidate queries for each skill and keeps only those that pass round-trip self-verification: a verifier must recover the source skill from a pool containing distractors. The retained queries form a verified query index. Online, the user request retrieves similar verified queries, their linked skills are aggregated into a compact candidate subset, and only compact skill specifications are passed to the final LLM for selection and argument generation. Thus generated queries improve retrieval but never enter the final prompt. Toollery decouples large-library search from LLM decision making, reducing candidate tokens and latency while preserving the LLM's schema-aware final choice.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Large language models (LLMs) are increasingly used as agents that invoke external capabilities, including APIs, software tools, and reusable skills \citep{schick2023toolformer, qin2023toolllm, patil2024gorilla, yao2022webshop}. We use \emph{skill} as the general unit of selection, and \emph{atomic skill} for tool-style APIs described by a name, natural-language description, schema, and optional examples or manual. In both cases, the agent must identify the relevant capability before it can generate a valid invocation.
+
+This selection step becomes a scalability bottleneck as skill libraries grow. Placing every candidate specification in the prompt increases cost and latency, can exceed context limits, and asks the LLM to compare many irrelevant or semantically adjacent options. Even when the full library fits, long candidate lists can distract the model and hurt selection accuracy \citep{paramanayakam2025less}. The candidate-pool analysis in Figure~\ref{fig:pool-size-degradation} illustrates this degradation as the number of available atomic tools grows. Practical assistants that expose operating-system actions, enterprise APIs, cloud services, retrieval modules, and domain skills therefore need a way to narrow the candidate set before LLM inference \citep{wu2024copilot, boto3, mo2025livemcpbench, xu2025tps}.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figs/figure1.jpg}
+  \caption{Impact of candidate pool size on tool selection accuracy in our ScaleTool-style atomic-tool analysis. Accuracy degrades as the number of available tools grows from 10 to 1,000, motivating candidate compression before final LLM selection.}
+  \label{fig:pool-size-degradation}
+\end{figure}
+
+A natural solution is retrieval: retrieve candidate skills from their names, descriptions, or documentation, then ask the LLM to choose among the subset \citep{agarwal2025toolrm, lin2025masstool, zheng2026skillrouter}. However, direct query-to-metadata retrieval suffers from a semantic mismatch. Users express goals in contextual language, while skill specifications often describe implementation-facing capabilities. For example, a user may ask whether to bring an umbrella to an afternoon meeting, while the relevant atomic skill is specified as \texttt{get\_hourly\_forecast(location, time)}. The intent and the metadata are aligned functionally, but not lexically.
+
+We introduce \textbf{Toollery}, a framework for \textbf{self-verified query retrieval} for scalable skill and atomic-skill selection. Toollery builds an intent layer around each skill rather than retrieving directly over static metadata. Offline, a generator LLM writes diverse candidate queries that resemble real user requests for each skill. A verifier LLM then performs a round-trip check: given a generated query and a candidate pool containing the source skill plus distractors, it must recover the source skill. Only queries that pass this check are retained as \emph{verified queries} in a verified query index.
+
+At inference time, Toollery retrieves from this verified query index, aggregates query-level matches into skill-level scores, and constructs a compact top-$k$ candidate subset. The final LLM receives the original user request and only the compact specifications of these candidates; verified queries are used solely for retrieval and are not included in the final prompt. This design keeps the final decision schema-aware while reducing prompt tokens, LLM prefill cost, and latency from scaling with the full library size to scaling with the chosen candidate subset.
+
+Our contribution is a compact candidate-compression layer for LLM agents: (i) we formulate scalable skill selection as retrieval over self-verified user-intent queries; (ii) we construct the index through generation followed by round-trip verification against distractors; and (iii) we expose a simple interface that sends only compact candidate skill specifications to the final LLM, making Toollery compatible with function-calling models, routers, and skill-selection pipelines without fine-tuning.
+
+\section{Related Work}
+\label{sec:related_work}
+
+\paragraph{Tool-augmented LLMs.}
+Tool-augmented language models extend LLMs from text generation to action generation by allowing them to call external APIs, software interfaces, search engines, calculators, and reusable agent skills. Prior work studies how models learn to invoke tools, follow schemas, and generate valid calls \citep{schick2023toolformer,yao2022react,patil2024gorilla,qin2023toolllm,li-etal-2023-api,liu2024toolace,liu2024apigen}. Toollery is complementary: it does not train a stronger function-calling model, but reduces the candidate action space that the model must inspect before making a call.
+
+\paragraph{Tool and skill retrieval.}
+A growing line of work treats tool selection as retrieval or routing rather than full-library prompting. ToolRM, MassTool, RAG-MCP, and context-pruning methods such as Less is More all aim to expose the LLM to a compact and relevant subset of tools \citep{agarwal2025toolrm,lin2025masstool,gan2025rag,paramanayakam2025less}. SkillRouter is especially related because it proposes a compact full-text retrieve-and-rerank pipeline for large skill registries \citep{zheng2026skillrouter}. Toollery makes a different design choice: it constructs an offline index of self-verified generated usage queries, then maps retrieved intents back to compact skill specifications. It can therefore serve as a pre-routing candidate compression layer before a standard LLM selector, function-calling interface, or SkillRouter-style reranker.
+
+\paragraph{Query augmentation and RAG.}
+Toollery is connected to query augmentation methods that generate pseudo-queries or synthetic intents to reduce vocabulary mismatch in retrieval. In tool and skill selection, the mismatch is between user goals and developer-facing metadata. Toollery generates user-like queries for each tool or skill, then retains only those that pass round-trip verification against distractors. Generic RAG systems, including RAGAnything-style pipelines \citep{guo2025raganything}, retrieve documentation chunks and condition the LLM on retrieved text. Toollery instead retrieves verified intent anchors, maps them back to skill identifiers, and sends only compact candidate specifications to the final LLM. The goal is candidate compression for constrained selection, not open-ended document grounding.
+
+\section{Method}
+\label{sec:method}
+
+Toollery separates large-library search from final LLM decision making. Figure~\ref{fig:toollery-pipeline} shows the two-stage pipeline: offline verified query index construction and online verified query retrieval. Given a skill library $\mathcal{A}=\{a_1,\ldots,a_M\}$, each skill $a_i$ has a specification $s_i$ containing fields such as name, description, schema, examples, or skill instructions. For a user request $x$, the goal is to retrieve a small candidate set $\mathcal{C}_k(x)\subset\mathcal{A}$ that contains the needed skill while satisfying $|\mathcal{C}_k(x)| \ll M$. The downstream LLM then receives $x$ and compact specifications for $\mathcal{C}_k(x)$, and produces the final selected skill and arguments.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/toollery_pipeline(1).jpg}
+    \caption{Overview of Toollery. Offline synthesis constructs a verified query index, and online proxy-query matching retrieves verified intents that are aggregated into a compact candidate set for final LLM selection.}
+    \label{fig:toollery-pipeline}
+\end{figure}
+
+\subsection{Verified Query Index}
+\label{subsec:index}
+
+Toollery builds an offline verified query index rather than prompting over all specifications. For each skill $a_i$, a generator model $G$ produces candidate usage queries $Q_i = G(s_i; N)$, where $N$ is the target number of generated queries. These queries are retrieval anchors, not final-prompt content: they translate skill-centric metadata into user-centric intents. For atomic skills, the generator sees the tool/API name, description, schema, return information when available, and examples; for higher-level skills, it sees the capability description, triggering conditions, inputs, and constraints.
+
+Generated queries are noisy: some are too broad, ambiguous, or inconsistent with the source skill. Toollery filters them with round-trip self-verification. For each $q\in Q_i$, it constructs a pool
+\begin{equation}
+\mathcal{P}_{i,q}=\{a_i\}\cup\mathcal{D}_{i,q},
+\end{equation}
+where $\mathcal{D}_{i,q}$ contains random or hard distractor skills. A verifier model $H$ receives $q$ and compact specifications for the skills in $\mathcal{P}_{i,q}$, then selects the best matching skill or abstains. The query is retained only if the verifier recovers the source:
+\begin{equation}
+V_i=\{q\in Q_i:H(q,\{s_j:a_j\in\mathcal{P}_{i,q}\})=a_i\}.
+\end{equation}
+The full index is
+\begin{equation}
+\mathcal{I}=\{(v,a_i):v\in V_i,\ a_i\in\mathcal{A}\}.
+\end{equation}
+Each entry stores a verified natural-language intent, its representation for retrieval, and the identifier of its source skill. The full skill specification remains outside this index and is retrieved only after skill aggregation. This distinction is central: Toollery indexes generated text for search, but the final LLM prompt contains only compact candidate skill specifications.
+
+\subsection{Retrieval and LLM Selection}
+\label{subsec:selection}
+
+At inference time, Toollery embeds the user request and verified queries into a shared retrieval space. For each index entry $(q_i,a_i)$, it computes $r_i=\cos(e(x),e(q_i))$, retrieves the top-$m$ verified queries, and aggregates query-level scores into skill-level scores. A simple aggregation is
+\begin{equation}
+R(a\mid x)=\max_{q_i:a_i=a} r_i,
+\end{equation}
+though mean, log-sum-exp, reciprocal-rank fusion, or verification-weighted variants can also be used. Aggregation converts multiple verified intents for the same skill into a single ranked candidate list. Toollery then selects
+\begin{equation}
+\mathcal{C}_k(x)=\operatorname{TopK}_{a\in\mathcal{A}} R(a\mid x),
+\end{equation}
+instantiates compact specifications for these $k$ skills, and sends them with the original user request to the final LLM. Retrieval is therefore not the final tool call; it only reduces the action space. The LLM remains responsible for resolving ambiguity, selecting the skill, and filling arguments.
+
+This design changes the online cost from full-library prompting to subset prompting. Figure~\ref{fig:toollery-illustration} contrasts the two inference patterns. If $L_s$ is the average token length of a skill specification, uncompressed prompting sends approximately $O(M\cdot L_s)$ skill-definition tokens to the LLM. Toollery sends approximately $O(k\cdot L_s)$ tokens, where $k\ll M$ and can remain fixed as the library grows. The verified query index grows offline, but generation and verification are amortized, and online vector retrieval replaces a much larger LLM-context expansion. Consequently, Toollery targets both quality and efficiency: high candidate recall under large skill pools, with lower final-prompt tokens and LLM latency.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figs/toollery_illustration(1).jpg}
+  \caption{Comparison between full-context tool selection and Toollery-style candidate compression. Toollery retrieves a compact subset before final LLM inference, reducing prompt size while preserving schema-aware selection.}
+  \label{fig:toollery-illustration}
+\end{figure}
+
+\section{Experiments}
+\label{sec:experiments}
+
+We evaluate Toollery on two complementary settings: broad skill routing and atomic tool/API selection. In this paper, tools and APIs are treated as atomic skills, while higher-level skills may include longer instructions, documentation, and triggering conditions. Table~\ref{tab:method-settings} defines the three method settings used throughout the experiments. A \emph{skill} denotes a reusable capability described by natural-language instructions or documentation; an \emph{atomic skill} denotes a tool-style API unit with a name, description, schema, and optional manual. Generated and verified queries are used only inside the retrieval index. The final LLM receives the user request and compact specifications for the retrieved top-$k$ candidates, not the generated query pool.
+
+\paragraph{Benchmarks.}
+The first track evaluates skill routing on SkillBench-style tasks aligned with SkillRouter; its result layout is shown in Table~\ref{tab:skillrouter-skillbench-results}. The second track evaluates atomic tool / atomic skill retrieval on candidate pools with gold tool labels, as shown in Tables~\ref{tab:atomic-tool-results} and~\ref{tab:atomic-tool-results-bfcl-nonlive}. Separately, we report end-to-end atomic-tool selection accuracy on HammerBench, xLAM, and BFCL under increasing candidate-pool sizes. Across both retrieval and end-to-end evaluations, we vary native and expanded candidate pools with random and hard distractors, e.g., $N \in \{100,500,1000,5000,10000\}$ when data permit.
+
+\paragraph{Method settings and baselines.}
+For retrieval/routing, we compare against BM25 and dense retrieval over raw skill text, a SkillRouter or SkillRouter-style retrieve-and-rerank pipeline on SkillBench, and RAGAnything adapted as a retrieval-over-documentation baseline. For end-to-end and efficiency comparisons, we also include direct all-candidate LLM selection where the context budget allows. Each retrieval baseline is evaluated in a raw setting and a query-augmented setting that appends the same Toollery-generated candidate queries to the searchable document. Unlike Full Toollery, these query-augmented baselines search over augmented documents rather than a verified query-level index. The main comparison therefore separates raw-document retrieval, query-augmented retrieval, and Full Toollery.
+
+\paragraph{Metrics and efficiency.}
+For retrieval, we report Hit@$k$ for single-gold tasks and Recall@$k$/nDCG@$k$ for multi-gold tasks, with MRR as a ranking metric. For single-gold atomic-tool tasks, Recall@$k$ reduces to Hit@$k$; FullCoverage@$k$ is used only when multiple required tools or skills must all appear in the candidate set. Candidate-set recall before final LLM selection is reported separately from final success. For end-to-end performance, we use exact match, pass rate, final task success, or each benchmark's official score. For offline construction, we report generated queries per skill, verification acceptance rate, verified queries per skill, zero-query skill rate, construction latency, and indexing cost.
+
+Efficiency is a first-class metric because Toollery's claim is not only better retrieval but also cheaper final selection. Tables~\ref{tab:skillrouter-skillbench-results},~\ref{tab:atomic-tool-results}, and~\ref{tab:atomic-tool-results-bfcl-nonlive} therefore include online retrieval latency as Avg ms/query. For end-to-end efficiency analyses, we additionally measure candidates sent to the final LLM, prompt tokens, completion tokens, reranking latency, final LLM latency, total latency, and estimated cost per 1,000 queries. Compression is reported relative to direct all-candidate prompting:
+\begin{align}
+\mathrm{TokenComp.}
+&= \frac{\mathrm{PromptTokens}_{\mathrm{all}}}
+{\mathrm{PromptTokens}_{\mathrm{method}}}, \\
+\mathrm{LatencyComp.}
+&= \frac{\mathrm{LLMLatency}_{\mathrm{all}}}
+{\mathrm{LLMLatency}_{\mathrm{method}}}.
+\end{align}
+When all-candidate prompting is infeasible for large pools, we use the largest feasible pool as the reference and mark larger-pool results as retrieval-only or retrieval-plus-LLM-subset evaluation.
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{p{0.13\linewidth}p{0.15\linewidth}p{0.15\linewidth}p{0.11\linewidth}p{0.13\linewidth}p{0.11\linewidth}}
+\hline
+\textbf{Setting} &
+\textbf{Searchable text} &
+\textbf{Generated queries} &
+\textbf{Retrieval unit} &
+\textbf{Final LLM input} &
+\textbf{Purpose} \\
+\hline
+Raw Baseline &
+Original skill/tool fields only &
+Not used &
+Raw document &
+Top-$k$ compact specs &
+Raw retrieval level \\
+Query-Augmented Baseline &
+Original fields plus shared generated queries &
+Appended to searchable documents &
+Augmented document &
+Top-$k$ compact specs &
+Effect of generated queries \\
+Full Toollery &
+Original fields used offline to construct verified query index &
+Generated and self-verified &
+Verified query &
+Top-$k$ compact specs &
+Verified intent retrieval and compression; dense retrieval in main experiments \\
+\hline
+\end{tabular}
+\caption{Method setting definitions for candidate retrieval/routing. The searchable text differs across settings, while the final LLM, when evaluated, receives only the original request and compact top-$k$ candidate specifications. Generated or verified queries are used for retrieval/indexing and are not copied into the final LLM prompt.}
+\label{tab:method-settings}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llccccccc}
+\hline
+\textbf{Setting} &
+\textbf{Method} &
+\textbf{Avg ms/query} &
+\textbf{Hit@1} &
+\textbf{Recall@10} &
+\textbf{Recall@50} &
+\textbf{MRR@10} &
+\textbf{nDCG@10} &
+\textbf{FullCoverage@10} \\
+\hline
+Raw Baseline & BM25 & 3909.4 & .553 & .571 & .726 & .625 & .512 & .413 \\
+Raw Baseline & Dense & 6106.9 & .600 & .568 & .712 & .663 & .500 & .393 \\
+Raw Baseline & RAGAnything & 821.6 & .600 & .568 & .712 & .663 & .500 & .393 \\
+Raw Baseline & SkillRouter$^\dagger$ & -- & .740 & .704 & -- & .791 & -- & .520 \\
+\hline
+Query-Augmented Baseline & BM25 & 6332.0 & .920 & \textbf{.942} & \textbf{.968} & .942 & .880 & .853 \\
+Query-Augmented Baseline & Dense & 9352.0 & .587 & .572 & .719 & .664 & .510 & .393 \\
+Query-Augmented Baseline & RAGAnything & 1070.5 & .587 & .572 & .719 & .664 & .510 & .393 \\
+\hline
+Full Toollery & BM25 & \textbf{218.9} & .840 & .880 & .951 & .881 & .846 & .760 \\
+Full Toollery & Dense & 48222.1$^\ast$ & \textbf{.933} & .933 & .957 & \textbf{.951} & \textbf{.890} & \textbf{.867} \\
+Full Toollery & RAGAnything & 21505.9$^\ast$ & .900 & .922 & .953 & .925 & .882 & .827 \\
+\hline
+\end{tabular}
+}
+\caption{SkillRouter / SkillBench-compatible retrieval results. Non-daggered quality values are from our unified full-pool v2 runs and average the easy and hard splits; the Full Toollery row uses the verified-query index from \texttt{outputs/toollery\_skillrouter\_full\_dp}. Avg ms/query is measured by replaying online retrieval on the easy split with warmed indexes/caches and excludes index construction. $^\dagger$ denotes reference quality values directly reported in the SkillRouter paper. $^\ast$ denotes a partial latency replay stopped after 41/75 easy queries.}
+\label{tab:skillrouter-skillbench-results}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llccccccc}
+\hline
+\textbf{Setting} &
+\textbf{Method} &
+\textbf{Avg ms/query} &
+\textbf{Hit@1} &
+\textbf{Recall@10} &
+\textbf{Recall@50} &
+\textbf{MRR@10} &
+\textbf{nDCG@10} &
+\textbf{FullCoverage@10} \\
+\hline
+Raw Baseline & BM25 & 3.6 & .643 & .931 & .976 & .744 & .790 & .931 \\
+Raw Baseline & Dense & 76.7 & .737 & .976 & .995 & .831 & .867 & .976 \\
+Raw Baseline & RAGAnything & 152.5 & .737 & .976 & .995 & .831 & .867 & .976 \\
+\hline
+Query-Augmented Baseline & BM25 & 5.0 & .731 & .948 & .986 & .811 & .845 & .948 \\
+Query-Augmented Baseline & Dense & 66.2 & \textbf{.776} & \textbf{.980} & \textbf{.997} & \textbf{.856} & \textbf{.887} & \textbf{.980} \\
+Query-Augmented Baseline & RAGAnything & 139.7 & \textbf{.776} & \textbf{.980} & \textbf{.997} & \textbf{.856} & \textbf{.887} & \textbf{.980} \\
+\hline
+Full Toollery & BM25 & \textbf{0.3} & .468 & .822 & .934 & .584 & .642 & .822 \\
+Full Toollery & Dense & 103.7 & .687 & .949 & .964 & .785 & .825 & .949 \\
+Full Toollery & RAGAnything & 81.8 & .543 & .855 & .929 & .653 & .702 & .855 \\
+\hline
+\end{tabular}
+}
+\caption{Atomic tool / atomic skill v2 retrieval quality on BFCL-live multiple full-pool instances, where each original query is evaluated against the complete 457-tool candidate pool. Quality values are computed from top-50 retrieval-quality runs; Avg ms/query is the retrieval latency measured in the corresponding top-3 efficiency runs. Recall@$k$ is the fraction of gold tools retrieved in the top-$k$ candidates; for single-gold cases it is equivalent to Hit@$k$.}
+\label{tab:atomic-tool-results}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llccccccc}
+\hline
+\textbf{Setting} &
+\textbf{Method} &
+\textbf{Avg ms/query} &
+\textbf{Hit@1} &
+\textbf{Recall@10} &
+\textbf{Recall@50} &
+\textbf{MRR@10} &
+\textbf{nDCG@10} &
+\textbf{FullCoverage@10} \\
+\hline
+Raw Baseline & BM25 & 14.4 & .780 & .970 & .995 & .854 & .883 & .970 \\
+Raw Baseline & Dense & 110.3 & .825 & \textbf{1.000} & \textbf{1.000} & .895 & .922 & \textbf{1.000} \\
+Raw Baseline & RAGAnything & 524.6 & .825 & \textbf{1.000} & \textbf{1.000} & .895 & .922 & \textbf{1.000} \\
+\hline
+Query-Augmented Baseline & BM25 & 25.9 & .815 & \textbf{1.000} & \textbf{1.000} & .887 & .915 & \textbf{1.000} \\
+Query-Augmented Baseline & Dense & 106.3 & \textbf{.845} & \textbf{1.000} & \textbf{1.000} & \textbf{.904} & \textbf{.928} & \textbf{1.000} \\
+Query-Augmented Baseline & RAGAnything & 657.3 & \textbf{.845} & \textbf{1.000} & \textbf{1.000} & \textbf{.904} & \textbf{.928} & \textbf{1.000} \\
+\hline
+Full Toollery & BM25 & \textbf{0.2} & .555 & .885 & .990 & .668 & .721 & .885 \\
+Full Toollery & Dense & 107.2 & .710 & .995 & .995 & .814 & .859 & .995 \\
+Full Toollery & RAGAnything & 77.9 & .605 & .925 & .985 & .722 & .772 & .925 \\
+\hline
+\end{tabular}
+}
+\caption{Atomic tool / atomic skill v2 retrieval quality on BFCL non-live multiple full-pool instances, where each original query is evaluated against the complete 443-tool candidate pool. Quality values are computed from top-50 retrieval-quality runs; Avg ms/query is the retrieval latency measured in the corresponding top-3 efficiency runs. Recall@$k$ is the fraction of gold tools retrieved in the top-$k$ candidates; for single-gold cases it is equivalent to Hit@$k$.}
+\label{tab:atomic-tool-results-bfcl-nonlive}
+\end{table*}
+
+\paragraph{End-to-end atomic-tool selection results.}
+In addition to the unified retrieval tables above, we report end-to-end atomic-tool selection experiments that evaluate Toollery candidate compression under different final LLM backbones. Tables~\ref{scaletoolresult_hb-baseline} and~\ref{scaletoolresult_xlam-baselines} report end-to-end selection accuracy on ScaleTool-HammerBench and ScaleTool-xLAM under increasing candidate-pool sizes. Tables~\ref{bfclResult-toollery} and~\ref{bfcl_live_Result} report BFCL-V4 non-live multiple and live multiple results. These tables evaluate downstream LLM tool selection after candidate compression, whereas Tables~\ref{tab:skillrouter-skillbench-results},~\ref{tab:atomic-tool-results}, and~\ref{tab:atomic-tool-results-bfcl-nonlive} isolate retrieval/routing quality before final LLM selection.
+
+\input{table_scaletool_hb}
+\input{table_scaletool_xlam}
+\input{table_ablation_backborn_bfcl}
+\input{table_bfcl_live_multiple}
+
+\section{Discussion and Limitations}
+\label{sec:discussion_limitations}
+
+Toollery's claim is intentionally narrow: it is not a universal skill router, a replacement for trained function-calling models, or a generic RAG system over tool documentation. It is a self-verified generated-query retrieval layer that compresses a large candidate library before final LLM selection. This framing explains why Toollery can be combined with stronger routers or selectors: retrieval reduces the search space, while the final model still performs schema-aware selection and argument generation.
+
+The comparison with SkillRouter and RAGAnything clarifies the boundary. SkillRouter retrieves and reranks over skill text; RAGAnything retrieves documentation chunks for grounding; Toollery retrieves verified user-intent anchors and maps them back to compact candidate specifications. If Toollery improves under fixed $k$, the gain suggests that verified intents better align retrieval with how users express tasks. If it mainly improves token and latency cost while matching accuracy, it still serves as an effective candidate-compression mechanism for large tool libraries.
+
+Toollery depends on the coverage and precision of its verified query index. If generation misses realistic user intents, retrieval recall is bounded; if verification uses weak distractors, ambiguous queries may enter the index. The method also adds offline maintenance cost: new or modified skills require query generation, verification, embedding, and index updates. This cost is amortized across future requests but matters in rapidly changing tool ecosystems. Finally, Toollery primarily addresses single-step candidate selection. It does not solve multi-tool planning, execution monitoring, recovery from failed calls, or argument correctness by itself.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented Toollery, a self-verified generated-query retrieval framework for scalable tool and skill selection. Toollery moves part of semantic grounding offline by generating user-like queries for each action and retaining only those that pass round-trip verification against distractors. At inference time, the user request retrieves verified queries, aggregates them into a compact candidate subset, and passes only top-$k$ tool or skill specifications to the final LLM. This positions Toollery as a pre-routing candidate compression layer that aims to preserve or improve selection quality while reducing prompt tokens, latency, and distractor pressure as tool and skill libraries grow.
+
+\clearpage
+\bibliography{custom}
+
+\end{document}

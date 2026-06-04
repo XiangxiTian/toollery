@@ -1,0 +1,34 @@
+\begin{table*}[htb]
+\caption{\label{bfcl_live_Result}
+    BFCL-V4 live multiple results
+  }
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lccccccc}
+\hline \hline
+\textbf{Model} &
+  \textbf{$\leq$ 10} &
+  \textbf{20} &
+  \textbf{30} &
+  \textbf{40} &
+  \textbf{50} &
+  \textbf{100} &
+  \textbf{457} \\ \hline \hline
+\textbf{Qwen3-4B (Prompt)}                  & 85.50 & 86.00 & 88.00 & 82.50 & 78.00  & 69.50 & 24.88 \\
+\textbf{Qwen3-4B (Prompt) + Toollery}       & 87.00 $\Uparrow$ & 84.50 & 87.00 & 86.50 $\Uparrow$ & 82.50 $\Uparrow$  & 81.00 $\Uparrow$ & 83.75 $\Uparrow$            \\ \hline
+\textbf{Qwen3-8B (Prompt)}                  & 97.00 & 93.50 & 92.00 & 84.00 & 83.00  & 84.50 & 38.50 \\
+\textbf{Qwen3-8B (Prompt) + Toollery}       & 95.50 & \textbf{98.50} $\Uparrow$ & \textbf{98.50} $\Uparrow$ & 92.50 $\Uparrow$ & \textbf{94.50}  & 86.50 $\Uparrow$ & 79.38 $\Uparrow$            \\ \hline
+\textbf{DeepSeek V3.2  (Prompt)}            & 94.50 & 80.00 & 84.00 & 89.50 & 79.50  & 63.00 & 77.00            \\
+\textbf{DeepSeek V3.2  (Prompt) + Toollery} & 98.00 $\Uparrow$ & 78.50 & 94.50 $\Uparrow$ & \textbf{99.50} $\Uparrow$ & 89.50 $\Uparrow$  & 89.00 $\Uparrow$ & 83.13 $\Uparrow$            \\ \hline
+\textbf{GPT-5-mini  (Prompt)}               & 83.00 & 93.00 & 90.00 & 87.00 & 88.00  & 88.00 & 79.75            \\
+\textbf{GPT-5-mini  (Prompt) + Toollery}    & 83.50 $\Uparrow$ & 94.00 $\Uparrow$ & 89.50 & 95.00 $\Uparrow$ & 89.50 $\Uparrow$  & 89.00 $\Uparrow$ & 84.50 $\Uparrow$            \\ \hline
+\textbf{GPT-5-mini (FC)}                    & 67.00 & 62.00 & 63.50 & 62.00 & 61.00  & 63.50 & 57.00            \\
+\textbf{GPT-5-mini (FC) + Toollery}         & 74.50 $\Uparrow$ & 67.50 $\Uparrow$ & 69.00  $\Uparrow$& 69.50 $\Uparrow$ & 67.00 $\Uparrow$  & 67.50 $\Uparrow$ & 66.00 $\Uparrow$            \\ \hline
+\textbf{Qwen3-8B (FC)}                      & 93.50 & 94.50 & 92.50 & 83.00 & 83.50  & 83.00 & 60.00            \\
+\textbf{Qwen3-8B (FC) + Toollery}           & 93.50 & 98.00 $\Uparrow$ & 90.50 & 99.00 $\Uparrow$ & 91.50 $\Uparrow$  & 88.50 $\Uparrow$ & 85.88 $\Uparrow$            \\ \hline
+\textbf{Qwen3-235B (FC)}                    & 98.00 & 93.00 & 87.50 & 89.50 & 85.50 & 80.00 & 81.13            \\
+\textbf{Qwen3-235B (FC) + Toollery}         & \textbf{98.50} $\Uparrow$ & 92.50 & 89.00 $\Uparrow$ & 89.50 & 90.00  & \textbf{91.50} $\Uparrow$ & \textbf{88.63} $\Uparrow$             \\ \hline \hline
+\end{tabular}
+}
+\vskip -0.1in
+\end{table*}

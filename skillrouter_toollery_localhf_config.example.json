@@ -1,0 +1,52 @@
+{
+  "deepseek": {
+    "api_key_env": "DASHSCOPE_API_KEY",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen3-max",
+    "timeout": 120,
+    "extra_body": {
+      "thinking": {
+        "type": "disabled"
+      }
+    }
+  },
+  "embedding": {
+    "backend": "local-hf",
+    "model": "Qwen/Qwen3-Embedding-0.6B",
+    "device": "mps",
+    "batch_size": 16,
+    "max_length": 256,
+    "pooling": "last",
+    "local_files_only": false
+  },
+  "skillrouter_toollery": {
+    "skillrouter_root": "/Users/txx1220/Projects/skillrouter/SkillRouter",
+    "data_root": "data/eval_core",
+    "tiers": ["easy", "hard"],
+    "manual_scope": "gt-related",
+    "proxy_queries_per_skill": 3,
+    "verify_proxies": true,
+    "top_k": 50,
+    "proxy_top_k": 1000,
+    "task_mode": "core",
+    "verifier_distractors": 8,
+    "example_queries_from_relevance": true,
+    "examples_per_skill": 3,
+    "llm_workers": 4,
+    "llm_batch_size": 4,
+    "skill_body_chars": 0,
+    "limit_pool": null,
+    "limit_skills": null,
+    "limit_tasks": null,
+    "seed": 31,
+    "force_rebuild": false,
+    "output_dir": "outputs/experiments_v2/skillrouter/full_toollery_gt_qwen3_06b",
+    "manual_raw_out": "manual_raw_{tier}.jsonl",
+    "manual_out": "manual_verified_{tier}.json",
+    "manual_embeddings_out": "embeddings/manual_embeddings_{tier}.json",
+    "force_rebuild_embeddings": false,
+    "predictions_out": "retrieval/{tier}.json",
+    "metrics_out": "metrics/{tier}.json",
+    "summary_out": "summary.json"
+  }
+}

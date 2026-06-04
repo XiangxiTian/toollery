@@ -1,0 +1,21 @@
+\begin{table*}[htb]
+\caption{\label{scaletoolresult_hb_toollery}
+    ScaleTool-HammerBench test results (main results)
+  }
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lclccclll}
+\hline
+\textbf{Model}               & \textbf{Overall Acc}    & \textbf{\[n\leq5\]} & \textbf{\[n\leq10\]} & \textbf{\[n\leq20\]} & \textbf{\[n\leq30\]} & \multicolumn{1}{c}{\textbf{\[n\leq40\]}} & \multicolumn{1}{c}{\textbf{\[n\leq50\]}} \\ \hline
+Qwen3-4B (Prompt) + Toollery      & 68.75 &  &  &  &  &  &  &  \\
+Qwen3-8B (Prompt) + Toollery      & 83.21 &  &  &  &  &  &  &  \\
+DeepSeek-V3.2 (Prompt) + Toollery &       &  &  &  &  &  &  &  \\
+GPT-5 + Toollery                  &       &  &  &  &  &  &  &  \\ \hline
+GPT-5-mini (FC) + Toollery        &       &  &  &  &  &  &  &  \\
+Qwen3-8B (FC) + Toollery          & 68.95 &  &  &  &  &  &  &  \\
+Qwen3-235B (FC) + Toollery        & 64.06 &  &  &  &  &  &  &  \\
+ToolACE-2-8B (FC) + Toollery      &       &  &  &  &  &  &  &  \\ \hline
+\end{tabular}
+}
+\vskip -0.1in
+\end{table*}

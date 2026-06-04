@@ -1,0 +1,134 @@
+\begin{thebibliography}{17}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Agarwal et~al.(2025)Agarwal, Abdelaziz, Basu, Unuvar, Lastras, Rizk,
+  and Kapanipathi}]{agarwal2025toolrm}
+Mayank Agarwal, Ibrahim Abdelaziz, Kinjal Basu, Merve Unuvar, Luis~A Lastras,
+  Yara Rizk, and Pavan Kapanipathi. 2025.
+\newblock Toolrm: Outcome reward models for tool-calling large language models.
+\newblock \emph{arXiv preprint arXiv:2509.11963}.
+
+\bibitem[{{Amazon Web Services}(2024)}]{boto3}
+{Amazon Web Services}. 2024.
+\newblock Boto3: The {AWS} {SDK} for {Python}.
+\newblock
+  \url{https://boto3.amazonaws.com/v1/documentation/api/latest/index.html}.
+\newblock Accessed: 2024-05-01.
+
+\bibitem[{Gan and Sun(2025)}]{gan2025rag}
+Tiantian Gan and Qiyao Sun. 2025.
+\newblock Rag-mcp: Mitigating prompt bloat in llm tool selection via
+  retrieval-augmented generation.
+\newblock \emph{arXiv preprint arXiv:2505.03275}.
+
+\bibitem[{Li et~al.(2023)Li, Zhao, Yu, Song, Li, Yu, Li, Huang, and
+  Li}]{li-etal-2023-api}
+Minghao Li, Yingxiu Zhao, Bowen Yu, Feifan Song, Hangyu Li, Haiyang Yu, Zhoujun
+  Li, Fei Huang, and Yongbin Li. 2023.
+\newblock \href {https://doi.org/10.18653/v1/2023.emnlp-main.187} {{API}-bank:
+  A comprehensive benchmark for tool-augmented {LLM}s}.
+\newblock In \emph{Proceedings of the 2023 Conference on Empirical Methods in
+  Natural Language Processing}, pages 3102--3116, Singapore. Association for
+  Computational Linguistics.
+
+\bibitem[{Lin et~al.(2025)Lin, Wang, Dai, Zhu, Chen, Tang, Yu, and
+  Zhang}]{lin2025masstool}
+Jianghao Lin, Xinyuan Wang, Xinyi Dai, Menghui Zhu, Bo~Chen, Ruiming Tang, Yong
+  Yu, and Weinan Zhang. 2025.
+\newblock Masstool: A multi-task search-based tool retrieval framework for
+  large language models.
+\newblock \emph{arXiv preprint arXiv:2507.00487}.
+
+\bibitem[{Mo et~al.(2025)Mo, Zhong, Chen, Chen, Lu, Lin, He, Han, and
+  Sun}]{mo2025livemcpbench}
+Guozhao Mo, Wenliang Zhong, Jiawei Chen, Xuanang Chen, Yaojie Lu, Hongyu Lin,
+  Ben He, Xianpei Han, and Le~Sun. 2025.
+\newblock Livemcpbench: Can agents navigate an ocean of mcp tools?
+\newblock \emph{arXiv preprint arXiv:2508.01780}.
+
+\bibitem[{Nogueira et~al.(2019)Nogueira, Yang, Lin, and
+  Cho}]{nogueira2019document}
+Rodrigo Nogueira, Wei Yang, Jimmy Lin, and Kyunghyun Cho. 2019.
+\newblock \href {https://arxiv.org/abs/1904.08375} {Document expansion by query
+  prediction}.
+\newblock \emph{arXiv preprint arXiv:1904.08375}.
+
+\bibitem[{Paramanayakam et~al.(2025)Paramanayakam, Karatzas, Anagnostopoulos,
+  and Stamoulis}]{paramanayakam2025less}
+Varatheepan Paramanayakam, Andreas Karatzas, Iraklis Anagnostopoulos, and
+  Dimitrios Stamoulis. 2025.
+\newblock Less is more: Optimizing function calling for llm execution on edge
+  devices.
+\newblock In \emph{2025 Design, Automation \& Test in Europe Conference
+  (DATE)}, pages 1--7. IEEE.
+
+\bibitem[{Patil et~al.(2025)Patil, Mao, Yan, Ji, Suresh, Stoica, and
+  Gonzalez}]{patilberkeley}
+Shishir~G Patil, Huanzhi Mao, Fanjia Yan, Charlie Cheng-Jie Ji, Vishnu Suresh,
+  Ion Stoica, and Joseph~E Gonzalez. 2025.
+\newblock The berkeley function calling leaderboard (bfcl): From tool use to
+  agentic evaluation of large language models.
+\newblock In \emph{Forty-second International Conference on Machine Learning}.
+
+\bibitem[{Patil et~al.(2024)Patil, Zhang, Wang, and
+  Gonzalez}]{patil2024gorilla}
+Shishir~G Patil, Tianjun Zhang, Xin Wang, and Joseph~E Gonzalez. 2024.
+\newblock Gorilla: Large language model connected with massive apis.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  37:126544--126565.
+
+\bibitem[{Qin et~al.(2023)Qin, Liang, Ye, Zhu, Yan, Lu, Lin, Cong, Tang, Qian
+  et~al.}]{qin2023toolllm}
+Yujia Qin, Shihao Liang, Yining Ye, Kunlun Zhu, Lan Yan, Yaxi Lu, Yankai Lin,
+  Xin Cong, Xiangru Tang, Bill Qian, and 1 others. 2023.
+\newblock Toolllm: Facilitating large language models to master 16000+
+  real-world apis.
+\newblock \emph{arXiv preprint arXiv:2307.16789}.
+
+\bibitem[{Schick et~al.(2023)Schick, Dwivedi-Yu, Dess{\`\i}, Raileanu, Lomeli,
+  Hambro, Zettlemoyer, Cancedda, and Scialom}]{schick2023toolformer}
+Timo Schick, Jane Dwivedi-Yu, Roberto Dess{\`\i}, Roberta Raileanu, Maria
+  Lomeli, Eric Hambro, Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom.
+  2023.
+\newblock Toolformer: Language models can teach themselves to use tools.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  36:68539--68551.
+
+\bibitem[{Wang et~al.(2025)Wang, Zhou, Wang, Mo, Zhang, Lin, Jincheng, Wen,
+  Zhang, and Peng}]{wang2025hammerbench}
+Jun Wang, Jiamu Zhou, Xihuai Wang, Xiaoyun Mo, Haoyu Zhang, Qiqiang Lin,
+  Jincheng Jincheng, Muning Wen, Weinan Zhang, and Qiuying Peng. 2025.
+\newblock Hammerbench: Fine-grained function-calling evaluation in real mobile
+  assistant scenarios.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  ACL 2025}, pages 3350--3376.
+
+\bibitem[{Wu et~al.(2024)Wu, Han, Ding, Weng, Liu, Yao, Yu, and
+  Kong}]{wu2024copilot}
+Zhiyong Wu, Chengcheng Han, Zichen Ding, Zhenmin Weng, Zhoumianze Liu, Shunyu
+  Yao, Tao Yu, and Lingpeng Kong. 2024.
+\newblock Os-copilot: Towards generalist computer agents with self-improvement.
+\newblock \emph{arXiv preprint arXiv:2402.07456}.
+
+\bibitem[{Xu et~al.(2025)Xu, Huang, Liu, Yu, and Deng}]{xu2025tps}
+Hanwen Xu, Xuyao Huang, Yuzhe Liu, Kai Yu, and Zhijie Deng. 2025.
+\newblock Tps-bench: Evaluating ai agents' tool planning$\backslash$\&
+  scheduling abilities in compounding tasks.
+\newblock \emph{arXiv preprint arXiv:2511.01527}.
+
+\bibitem[{Yao et~al.(2022)Yao, Chen, Yang, and Narasimhan}]{yao2022webshop}
+Shunyu Yao, Howard Chen, John Yang, and Karthik Narasimhan. 2022.
+\newblock Webshop: Towards scalable real-world web interaction with grounded
+  language agents.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  35:20744--20757.
+
+\bibitem[{Zheng et~al.(2026)Zheng, Li, Liu, Feng, Wu, Guo, Peng, Li, Zhang,
+  Zhang et~al.}]{zheng2026skillrouter}
+Hanjie Zheng, Chenglin Li, Yibing Liu, Jiazhan Feng, Wenhao Wu, Jiabao Guo,
+  Yicheng Peng, Tianhang Li, Qian Zhang, Chi Zhang, and 1 others. 2026.
+\newblock Skillrouter: Retrieve-and-rerank skill selection for llm agents at
+  scale.
+\newblock \emph{arXiv preprint arXiv:2603.22455}.
+
+\end{thebibliography}

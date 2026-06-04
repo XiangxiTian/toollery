@@ -1,0 +1,125 @@
+\title{Toollery: Self-Verified Query Retrieval for Scalable Tool and Skill Selection}
+
+% Alternative title candidates:
+% \title{Toollery: Scaling Tool and Skill Selection with Self-Verified Query Retrieval}
+% \title{Toollery: Verified Intent Retrieval for Large-Scale Tool and Skill Selection}
+% \title{Toollery: Building Verified Query Indexes for Scalable Agent Tool Use}
+
+\begin{abstract}
+Large language model (LLM) agents increasingly operate over large and evolving libraries of tools, APIs, and skills. In this setting, tool selection becomes a scalability bottleneck: placing all candidate specifications in the prompt is costly, often exceeds context limits, and can reduce selection accuracy by forcing the model to reason over many irrelevant or semantically adjacent options. We present \textbf{Toollery}, a retrieval framework for scalable tool and skill selection. Toollery is built on a simple observation: users describe tasks as intents, while tool and skill metadata describe capabilities; matching intents to other verified intents is often more reliable than matching intents directly to terse metadata. Offline, Toollery generates diverse candidate queries for each tool or skill, then applies round-trip self-verification to retain only queries that reliably lead a verifier model back to the source tool or skill. The retained \emph{verified queries} form a \emph{verified query index}. Online, a user query retrieves similar verified queries from this index, aggregates their associated tools or skills, and constructs a compact candidate subset. Only compact candidate specifications are passed to the final LLM for selection and argument generation; verified queries are used solely for retrieval and are not included in the final LLM prompt. This design decouples large-library search from final decision making, enabling existing LLM agents to scale to larger tool and skill collections without fine-tuning.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Large language models (LLMs) are increasingly used as agents that call external tools, APIs, and skills to interact with software systems and real-world services \citep{schick2023toolformer, qin2023toolllm, patil2024gorilla, yao2022webshop}. In such systems, the model must first decide which tool or skill is relevant to a user request, and only then generate a valid invocation. This selection step is deceptively difficult. It is not merely a matter of reading a function name or API description: real users express goals in underspecified, contextual, and domain-specific language, while tool and skill specifications are often terse, implementation-oriented, or written for developers rather than end users.
+
+The difficulty becomes more pronounced as the available library grows. A small agent may expose a handful of functions, but practical assistants increasingly need access to hundreds or thousands of tools and skills: operating-system actions, enterprise APIs, cloud services, database operations, retrieval modules, and reusable workflow skills \citep{wu2024copilot, boto3, mo2025livemcpbench, xu2025tps}. The common prompting strategy of placing every candidate specification in context does not scale well. It increases latency and cost, can exceed context windows, and forces the LLM to compare many irrelevant or near-duplicate candidates. Even when the full library fits in context, long candidate lists can distract the model and degrade selection accuracy \citep{liu2024lost, paramanayakam2025less}.
+
+Existing retrieval-based approaches mitigate this problem by retrieving tools from their names, descriptions, or documentation before prompting the LLM \citep{agarwal2025toolrm, lin2025masstool}. However, direct query-to-metadata retrieval exposes a semantic mismatch. A user may ask, ``Can you tell me whether I should bring an umbrella to my afternoon meeting?'', while the relevant tool may be specified as \texttt{get\_hourly\_forecast(location, time)}. The user query and the tool metadata refer to the same capability, but at different levels of abstraction. As the library grows, this mismatch becomes increasingly costly: generic words in metadata can attract false positives, while specialized tools may be missed because their documentation does not resemble natural user intent.
+
+This paper introduces \textbf{Toollery}, a framework for \textbf{self-verified query retrieval} for scalable tool and skill selection. Toollery is based on a core insight: instead of retrieving tools or skills directly from static metadata, we can first construct a verified intent layer around each candidate. Offline, a generator LLM produces diverse \emph{candidate queries} that express plausible user requests for each tool or skill. A verifier LLM then performs a round-trip check: given a generated query and a candidate pool containing the source tool or skill plus distractors, the verifier must select the original source. Only generated queries that pass this check are retained as \emph{verified queries}. The resulting \emph{verified query index} maps natural-language intents to tools and skills.
+
+At inference time, Toollery uses the incoming user query only to retrieve from this verified query index. Retrieved verified queries vote for their associated tools or skills, and Toollery aggregates these signals into a \emph{compact candidate subset}. The final LLM receives the user query together with compact specifications for only this subset, then performs the ordinary final decision and argument generation. Crucially, the verified queries themselves do \emph{not} enter the final LLM prompt. They are retrieval-time artifacts: their role is to find a small, high-recall set of candidates, not to steer or explain the final answer. This separation keeps the final prompt compact and prevents generated text from contaminating the model's final tool-use reasoning.
+
+Toollery is model-agnostic and does not require fine-tuning. It can be added as an indexing and retrieval layer in front of existing function-calling or agent frameworks. It also naturally covers both \emph{tools}, such as APIs with structured schemas, and \emph{skills}, such as reusable procedures or agent capabilities described in natural language. In both cases, the system faces the same selection problem: map a user intent to the small set of executable or invocable capabilities that the LLM should consider.
+
+Our contributions are:
+\begin{itemize}
+    \item \textbf{A self-verified query retrieval formulation.} We frame scalable tool and skill selection as retrieval over verified user-intent queries rather than direct retrieval over tool metadata. This reformulation aligns the retrieval space with how users express needs.
+    \item \textbf{A round-trip verification pipeline.} We propose an offline procedure that generates candidate queries for each tool or skill and filters them through verifier-based round-trip selection against distractors, producing a high-precision verified query index.
+    \item \textbf{A compact candidate selection interface for LLM agents.} At inference time, Toollery retrieves verified queries, aggregates their associated tools or skills, and passes only compact candidate specifications to the final LLM. Verified queries are used only inside the retrieval index and are excluded from the final prompt.
+\end{itemize}
+
+\section{Method}
+\label{sec:method}
+
+Toollery separates large-library search from final LLM decision making. The offline stage builds a verified query index for a library of tools and skills. The online stage retrieves from this index to construct a compact candidate subset, then asks the LLM to select and invoke from that subset. This section describes the problem setup and the first half of the offline pipeline: query generation and round-trip self-verification.
+
+\subsection{Problem Setup}
+\label{sec:problem_setup}
+
+Let $\mathcal{A} = \{a_1, \ldots, a_M\}$ denote a library of available actions, where each action $a_i$ may be a structured tool, an API function, or a higher-level skill. Each action is associated with a specification $s_i$, which may include a name, natural-language description, argument schema, usage constraints, examples, or skill instructions. Given a user query $x$, the goal is to identify a small candidate set $\mathcal{C}(x) \subset \mathcal{A}$ that contains the action(s) needed to satisfy the request. A downstream LLM then receives $x$ and compact specifications for $\mathcal{C}(x)$, and outputs the final selected action and arguments.
+
+The key constraint is that $M$ can be large. Passing all specifications $\{s_i\}_{i=1}^{M}$ to the LLM is expensive and may be infeasible. More importantly, it gives the LLM a noisy comparison problem: it must attend to many candidates that are irrelevant to the current user query. We therefore seek a retrieval function
+\begin{equation}
+    R(x, \mathcal{I}) \rightarrow \mathcal{C}(x),
+\end{equation}
+where $\mathcal{I}$ is an index built offline from the action library, and $|\mathcal{C}(x)| \ll M$. The retrieval function should have high recall for the correct action while keeping the candidate subset compact enough for reliable LLM selection.
+
+Toollery builds $\mathcal{I}$ not from action metadata alone, but from verified natural-language queries associated with each action. For each action $a_i$, the offline pipeline constructs a set of verified queries $V_i = \{v_{i1}, \ldots, v_{in_i}\}$. The full verified query index is
+\begin{equation}
+    \mathcal{I} = \{(v, a_i): v \in V_i,\; a_i \in \mathcal{A}\}.
+\end{equation}
+Each entry links a natural-language intent $v$ to the action $a_i$ that can satisfy it. During online retrieval, user query $x$ is compared against the verified queries in $\mathcal{I}$, not against the final action specifications directly.
+
+We distinguish three textual objects throughout the method. \emph{Candidate queries} are generated offline from an action specification and may contain noise. \emph{Verified queries} are candidate queries that pass round-trip self-verification. \emph{Compact candidate specifications} are shortened action descriptions passed to the final LLM after retrieval. Verified queries belong only to the retrieval index; they are not shown to the final LLM.
+
+\subsection{Query Generation for Tools and Skills}
+\label{sec:query_generation}
+
+The first offline step expands each action specification into diverse candidate queries. For an action $a_i$ with specification $s_i$, a generator model $G$ produces a set
+\begin{equation}
+    Q_i = G(s_i; N, \pi),
+\end{equation}
+where $N$ is the target number of generated queries and $\pi$ is a generation prompt that instructs the model to write plausible user requests that would require $a_i$.
+
+The purpose of this step is not to create additional documentation for the final LLM. Instead, the generated queries act as retrieval anchors that translate tool- or skill-centric descriptions into user-centric language. For structured tools, the generator is given the tool name, description, argument schema, return type when available, and any examples. For skills, the generator is given the skill name, capability description, triggering conditions, expected inputs, and operational constraints. In both cases, the generator is asked to produce queries that a real user might write before knowing the action exists.
+
+We encourage diversity along several dimensions:
+\begin{itemize}
+    \item \textbf{Lexical and syntactic variation.} Queries should use different phrasings rather than repeating the words in the specification.
+    \item \textbf{Intent abstraction.} Queries should express user goals, not API names or implementation details. For example, a weather API may correspond to a travel-planning question rather than an explicit request to call a forecast endpoint.
+    \item \textbf{Contextual specificity.} Queries may include concrete entities, constraints, or situational context, as long as the source action remains sufficient to satisfy the request.
+    \item \textbf{Boundary coverage.} Queries should cover important use cases and input regimes described by the action specification, including optional arguments and common constraints.
+\end{itemize}
+
+Generated candidate queries are intentionally over-inclusive. Some will be too broad, too narrow, ambiguous across multiple actions, or subtly inconsistent with the source specification. For instance, a generated query for a calendar lookup skill might accidentally require editing an event, or a generated query for a file search tool might imply semantic search when the tool only supports exact filename matching. Toollery therefore treats $Q_i$ as a noisy proposal set and applies verification before indexing.
+
+\subsection{Round-Trip Self-Verification}
+\label{sec:self_verification}
+
+Round-trip self-verification filters generated candidate queries by testing whether they lead a verifier model back to the source action. For each generated query $q \in Q_i$, Toollery constructs a verification pool
+\begin{equation}
+    \mathcal{P}_{i,q} = \{a_i\} \cup \mathcal{D}_{i,q},
+\end{equation}
+where $\mathcal{D}_{i,q} \subset \mathcal{A} \setminus \{a_i\}$ is a set of distractor actions. The verifier model $H$ receives the generated query $q$ and compact specifications for the actions in $\mathcal{P}_{i,q}$, then selects the action that best satisfies the query or abstains if none is appropriate:
+\begin{equation}
+    \hat{a} = H(q, \{s_j : a_j \in \mathcal{P}_{i,q}\}).
+\end{equation}
+The query is retained only if $\hat{a} = a_i$. Otherwise, it is discarded. The verified query set for action $a_i$ is therefore
+\begin{equation}
+    V_i = \{q \in Q_i : H(q, \{s_j : a_j \in \mathcal{P}_{i,q}\}) = a_i\}.
+\end{equation}
+
+This check is a round trip: generation maps an action specification to a possible user query, and verification maps that query back to an action under competition. A generated query that cannot recover its source action is not a reliable retrieval anchor. It may be linguistically plausible, but it is unsafe to index because it could retrieve the wrong action when the library grows.
+
+Distractor selection is important. Random distractors test whether a query is broadly compatible with unrelated actions, while hard distractors test whether the query distinguishes among semantically adjacent tools or skills. In practice, Toollery can combine both: sample random actions for coverage and retrieve metadata-nearest neighbors as hard negatives. The verifier is thus asked to resolve realistic confusions, such as read versus write actions, search versus summarization skills, or APIs that differ only in argument constraints.
+
+The output of self-verification is the verified query index $\mathcal{I}$. Each index entry stores the verified query text, its embedding or sparse representation, and the identifier of its source action. It may also store lightweight metadata such as the source category or verification confidence. The full action specification remains outside the verified query index and is retrieved only after action aggregation, when Toollery constructs the compact candidate subset for the final LLM.
+
+\begin{algorithm}[t]
+\caption{Offline Construction of the Verified Query Index}
+\label{alg:verified_query_index}
+\begin{algorithmic}[1]
+\State \textbf{Input:} action library $\mathcal{A}$; specifications $\{s_i\}$; generator $G$; verifier $H$; query count $N$; distractor sampler $\mathrm{SampleDistractors}$
+\State \textbf{Output:} verified query index $\mathcal{I}$
+\State $\mathcal{I} \leftarrow \emptyset$
+\For{each action $a_i \in \mathcal{A}$}
+    \State $Q_i \leftarrow G(s_i; N)$ \Comment{Generate candidate queries}
+    \For{each candidate query $q \in Q_i$}
+        \State $\mathcal{D}_{i,q} \leftarrow \mathrm{SampleDistractors}(a_i, q, \mathcal{A})$
+        \State $\mathcal{P}_{i,q} \leftarrow \{a_i\} \cup \mathcal{D}_{i,q}$
+        \State $\hat{a} \leftarrow H(q, \{s_j : a_j \in \mathcal{P}_{i,q}\})$
+        \If{$\hat{a} = a_i$}
+            \State Add $(q, a_i)$ to $\mathcal{I}$ \Comment{$q$ becomes a verified query}
+        \EndIf
+    \EndFor
+\EndFor
+\State \Return $\mathcal{I}$
+\end{algorithmic}
+\end{algorithm}
+
+Because verified queries are produced offline, the cost of generation and verification is amortized across future user requests. Updating the library is also local: when a new tool or skill is added, Toollery generates and verifies queries for that action and inserts the passing entries into the verified query index. When an action is modified or removed, its associated verified queries can be regenerated or deleted without rebuilding the entire system.
+
+After the verified query index has been constructed, online inference proceeds by embedding or otherwise representing the incoming user query, retrieving the nearest verified queries, aggregating their source actions, and forming a compact candidate subset. The final LLM sees only the user query and compact candidate specifications for this subset. The verified queries remain internal to retrieval, preserving a clean separation between scalable search and final LLM-based tool or skill selection.
