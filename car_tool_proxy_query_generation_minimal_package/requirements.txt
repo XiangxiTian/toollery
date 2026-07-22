@@ -1,0 +1,6 @@
+# No third-party packages are required to run scripts/generate_car_tool_proxy_queries.py
+# with the included JSON tool file.
+#
+# Optional only if you use scripts/convert_car_tools_to_bfcl.py to read .xlsx files:
+# openpyxl
+

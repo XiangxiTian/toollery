@@ -1,0 +1,10 @@
+{
+  "llm": {
+    "samples": 1,
+    "labeled_samples": 1,
+    "top_k": 5,
+    "recall_at_k": 0.0,
+    "top_1_accuracy": 0.0,
+    "avg_latency_ms": 1814.825082954485
+  }
+}

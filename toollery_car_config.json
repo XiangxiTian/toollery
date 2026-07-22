@@ -1,0 +1,19 @@
+{
+  "deepseek": {
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-v4-pro",
+    "timeout": 120,
+    "extra_body": {
+      "thinking": { "type": "disabled" }
+    }
+  },
+  "car_tool_generated_queries": {
+    "proxy_queries_per_tool": 5,
+    "verify_proxies": true,
+    "verifier_distractors": 9,
+    "llm_workers": 4,
+    "llm_batch_size": 4,
+    "seed": 31
+  }
+}

@@ -50,7 +50,7 @@
 %
 % and set <dim> to something 5cm or larger.
 
-\title{Toollery: Intent-Augmented Retrieval for Scalable Skill and Tool Selection in LLM Agents}
+\title{Toollery: Scaling LLM Agents to Hundreds of Skills/Tools}
 
 % Author information can be set in various styles:
 % For several authors from the same institution:
@@ -118,38 +118,38 @@
 \maketitle
 \begin{abstract}
 
-Large-scale LLM agents increasingly expose hundreds to tens of thousands of skills, tools, and API functions, making full-catalog prompting costly and unreliable in production settings. We introduce \textbf{Toollery}, a training-free candidate-compression framework for scalable skill and tool selection. Toollery moves part of intent matching offline: for each skill or tool specification, it generates user-like intent queries, appends them to the searchable metadata, and builds a retrieval index that maps user requests to compact candidate sets before final LLM decision making. This design preserves compatibility with standard retrievers and existing function-calling models, while reducing the online selection problem from full-library prompting to subset selection. We evaluate Toollery on large-scale skill routing and atomic-tool retrieval settings, including SkillsBench easy and hard splits with roughly 79K skills and BFCL-live/non-live pools with over 400 tools. With BM25, Toollery achieves .920 Hit@1 and .942 Recall@10 on 79K skill pools, while keeping online retrieval latency to 623 ms/query. On BFCL-live atomic-tool retrieval, Toollery with RAGAnything reaches .776 Hit@1 and .980 Recall@10 on 400+ tools, and end-to-end experiments show that candidate compression improves final tool-selection accuracy as candidate pools grow. These results suggest that intent-augmented retrieval offers a practical deployment pattern for large and evolving agent capability libraries: shift semantic matching cost offline, keep online prompts compact, and let the final LLM decide only among plausible skills and tools.
+As LLM agents are exposed to hundreds to tens of thousands of skills, tools, and API functions, full-library prompting becomes costly, slow, and less reliable: each added candidate increases prompt tokens and latency, while longer candidate lists introduce more distractors for LLM selection. We introduce \textbf{Toollery}, a training-free candidate-compression framework for scalable LLM skill/tool selection. Toollery generates user-intent queries from each skill/tool specification and builds a retrieval index that maps real user requests to compact candidate sets before final LLM decision-making. By treating high-level skills and atomic tools as selectable capabilities, Toollery can be applied to both skill libraries and tool registries. We evaluate Toollery on SkillsBench with roughly 79K skills, BFCL-V4 with over 440 atomic tools, and a proprietary 220-intent vehicle-control dataset. Across these settings, Toollery keeps online selection bounded to a compact top-$k$ candidate set, improves recall over ordinary specification retrieval, and improves BFCL-V4 end-to-end tool-selection accuracy compared with full-library prompting. These results support Toollery as a practical framework for large and evolving agent capability libraries: shift semantic matching offline, keep online prompts compact, and let the final LLM decide only among a compact set of retrieved candidates.
+
 
 \end{abstract}
 
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figs/toollery_pipeline(1).jpg}
-    \caption{\textbf{Overview of Toollery.} Toollery scales skill selection by moving part of intent matching offline. For each skill specification, a generator produces user-intent queries that are attached to the searchable skill or tool metadata. At inference time, Toollery retrieves a compact candidate skill set from these query-augmented documents and passes only these candidates to the final LLM for decision making. Atomic tools and APIs are treated as atomic skills.}
+    \caption{\textbf{Overview of Toollery.} Toollery scales LLM skill/tool selection by moving part of intent matching offline. For each skill/tool specification, a generator produces user-intent queries that can be mapped back to the skill or tool. At inference time, Toollery retrieves a compact candidate set from these user-intent queries and specifications, and passes only these candidates to the final LLM for decision making.}
     \label{fig:toollery-overview}
 \end{figure}
 
 \section{Introduction}
 \label{sec:intro}
 
-LLM agents increasingly rely on external capabilities to complete user requests: a capability may be a high-level procedural skill, a MCP service, or an atomic tool \citep{schick2023toolformer, qin2023toolllm, patil2024gorilla, yao2022webshop}. This expansion changes a core problem in agent design. Instead of only deciding \emph{how} to act, an agent must first decide \emph{which} skill/tool should be exposed to the model for a given user intent. As public ecosystems already aggregate large collections of agent skills\footnote{\url{https://github.com/VoltAgent/awesome-openclaw-skills}; \url{https://github.com/openclaw/clawhub}.} /tool, skill/tool selection becomes a bottleneck for both effectiveness and efficiency \citep{lin2025masstool, mo2025livemcpbench, xu2025tps}.
+LLM agents increasingly rely on external resources to complete user requests: a resource may be a high-level procedural skill, an MCP service, an atomic tool, or an API function \citep{schick2023toolformer, qin2023toolllm, patil2024gorilla}. Although these resources differ in granularity and execution interface, they play the same role before execution: the agent must decide whether each one should be exposed to the final LLM for the current user request. We therefore treat them as selectable \emph{capabilities} throughout this paper. As capability libraries grow, skill/tool selection becomes a production bottleneck. Industrial reports and our own agent deployments show that loading skill/tool specifications upfront can consume tens of thousands of tokens before any user work begins, while selection accuracy degrades as the library grows \citep{anthropic_tool_search, anthropic_advanced_tool_use}. In our deployment, after loading more than 200 skills and tools, even a trivial greeting can consume more than 50K input tokens and over 5 seconds of response latency. Scalable LLM skill/tool selection is therefore necessary for controlling token cost, latency, and accuracy as public ecosystems aggregate increasingly large capability libraries \citep{clawhub, lin2025masstool, mo2025livemcpbench, xu2025tps}.
+
+The common practice is full-library prompting: place every skill/tool specification in the prompt and let the LLM choose. This preserves the full decision context, but makes the agent pay the cost of reviewing every available capability on every request, even when the request needs no tool. As a result, easy or irrelevant requests still incur high prompt cost, higher latency, and more distractors for final LLM decision making. Practical agents therefore need a candidate-compression layer that narrows the action space before LLM inference.
 
 
-A straightforward solution is to place all skill/tool specifications in the prompt and let the LLM choose. This approach preserves the full decision context, but it scales poorly with library size: prompt length, latency, and distractor interference all increase as more skills/tools are added. Even when the full library fits, long candidate lists can distract the model and hurt selection accuracy \citep{paramanayakam2025less}. Practical agents that expose operating-system actions, atomic tools, MCP services, and skills therefore need a way to narrow the candidate set before LLM inference \citep{wu2024copilot, boto3, mo2025livemcpbench, xu2025tps}.
+Retrieval is a natural way to implement candidate compression, but ordinary specification retrieval is limited. Existing retrieval-based methods commonly retrieve candidates directly from skill/tool specifications, including names, descriptions, and schemas \citep{agarwal2025toolrm, lin2025masstool, zheng2026skillrouter}. This assumes that user requests resemble specifications. In practice, users describe goals, constraints, or partial tasks, while specifications describe capabilities, parameters, and developer-facing usage details. This intent--specification mismatch is especially problematic for heterogeneous libraries whose capabilities are written at different levels of abstraction.
 
-Another common strategy is to retrieve candidates directly from their names, descriptions, or documentation \citep{agarwal2025toolrm, lin2025masstool, zheng2026skillrouter}. However, direct metadata retrieval assumes that user requests resemble skill/tool specifications. In practice, this assumption is often weak. Users describe goals, constraints, or partial tasks, while skill specifications describe implementation details, input formats, or developer-facing functionality. The mismatch is especially problematic for skill libraries whose entries are heterogeneous, compositional, or written at different levels of abstraction.
+We introduce \textbf{Toollery}, a training-free framework that frames scalable LLM skill/tool selection as \textbf{intent-level retrieval}. Rather than retrieving over specifications directly, Toollery asks what kinds of user requests should select each capability. It treats high-level skills, MCP services, atomic tools, and API functions as selectable capabilities under the same abstraction. Toollery generates user-intent queries from each capabilities specification, retrieves a compact top-$k$ candidate set using these intent-augmented representations, and forwards only the selected candidates to the final LLM. This separates library-scale matching from schema-aware final LLM decision making.
 
-We frame scalable skill selection as an \textbf{intent-level retrieval} problem. Rather than retrieving over skill metadata alone, we ask: what kinds of user requests should this skill be selected for? This framing treats tools and APIs as atomic skills, but also supports higher-level skills that encode multi-step procedures. The key idea is to move part of the matching problem offline: skill specifications are converted into user-intent queries, and online retrieval operates over these intent representations before passing a compact candidate set to the final LLM decision stage.
+Our experiments show that Toollery turns the growing skill/tool-selection bottleneck into a bounded retrieval problem. On SkillsBench, BFCL-V4, and a proprietary vehicle-control dataset, candidate pools range from hundreds of tools or intents to roughly 79K skills, yet Toollery keeps online LLM selection bounded to a compact top-$k$ candidate set. This reduces the number of specifications exposed to the final LLM, keeping token cost and latency controllable as the library grows. At the same time, the retrieved top-$k$ sets achieve higher recall than ordinary specification retrieval, and BFCL-V4 end-to-end experiments show that Toollery improves final tool-selection accuracy compared with full-candidate prompting.
 
-We introduce \textbf{Toollery}, a training-free framework for scalable skill selection. As shown in Figure~\ref{fig:toollery-overview}, Toollery first generates user-like intent queries from each skill specification and attaches them to the original searchable metadata. At inference time, a user request retrieves over these query-augmented skill documents and forwards only the top candidate skills to the final LLM. This design separates broad library-scale matching from final decision making: retrieval compresses a large skill pool into a small candidate set, while the LLM remains responsible for the final selection among plausible skills.
-
-Our experiments show that generated intent queries are effective at realistic library scales. On SkillsBench dataset routing over roughly 79K-skill pools \citep{zheng2026skillrouter, li2026skillsbench}, Toollery with BM25 achieves .920 Hit@1, .942 Recall@10, .968 Recall@50, .942 MRR@10, .880 nDCG@10, and .853 FullCoverage@10, substantially improving over raw metadata retrieval. On BFCL-live atomic-skill retrieval over a complete 457-tool pool, Toollery with RAGAnything \citep{guo2025rag} reaches .776 Hit@1 and .980 Recall@10. Ablations show that retrieving generated queries alone can be useful, but the main Toollery representation is the combination of original metadata and generated user-intent queries.
 
 This paper makes the following contributions:
 \begin{itemize}
-    \item We formulate scalable skill selection as intent-level retrieval, where tools are treated as atomic skills and skill specifications are indexed through generated user intents.
-    \item We present Toollery, a training-free candidate-compression framework that converts skill specifications into user-intent queries, appends those queries to searchable metadata, and retrieves compact candidate sets before final LLM decision making.
-    \item We evaluate Toollery on large-scale skill routing and atomic-tool retrieval settings, showing strong performance over roughly 79K-skill pools and 400+ tool pools, with generated-query-only and retrieval-backend ablations.
+    \item We formulate skill/tool selection as intent-level candidate compression, treating high-level skills, MCP services, atomic tools, and API functions as selectable capabilities under the same abstraction.
+    \item We present Toollery, a training-free framework that shifts semantic matching offline by generating user-intent queries from capability specifications and retrieving compact top-$k$ candidate sets before final LLM decision making
+    \item We evaluate Toollery across large-scale skill routing, public atomic-tool benchmarks, and a proprietary multi-intent dataset, showing that Toollery bounds online LLM selection by limiting the number of skill/tool specifications exposed to the final LLM, thereby controlling prompt tokens, latency, and distractor exposure while improving retrieval recall and end-to-end tool-selection accuracy under candidate-pool growth.
 \end{itemize}
 
 
@@ -159,79 +159,69 @@ Prior work improves LLM tool use by training or evaluating models that invoke ex
 
 Recent retrieval and routing methods reduce the action space before tool selection \citep{agarwal2025toolrm, lin2025masstool, zheng2026skillrouter, gan2025rag, paramanayakam2025less}. MassTool learns search-based tool retrieval signals, SkillRouter retrieves and reranks skills at scale, and RAG-MCP-style systems retrieve tool documentation to reduce prompt bloat. Toollery is complementary: it trains no router, and expands each searchable skill document with generated user intents so standard retrievers can match user phrasing to developer-facing metadata.
 
-This design is also related to synthetic query/document expansion for reducing vocabulary mismatch \citep{nogueira2019document}. We adapt it to agent skill selection, where each generated query must map back to a selectable skill, and evaluate on recent large-pool skill and tool benchmarks \citep{zheng2026skillrouter, patil2024gorilla, wang2025hammerbench, mo2025livemcpbench, xu2025tps}.
-
+A key distinction is that Toollery treats high-level skills, MCP services, atomic tools, and API functions as the same type of selectable capability. This unified abstraction lets the Toollery operate over heterogeneous capability libraries: generated intents are generated according to each capability specification, retrieval compresses the library to a compact candidate set, and the final LLM performs schema-aware selection only over retrieved candidates.
 
 \section{The Toollery Design}
 \label{sec:method}
 
-Toollery separates large-library search from final LLM decision making. Figure~\ref{fig:toollery-overview} shows the overall pipeline: Toollery first generates user-intent queries for each skill, appends them to the original searchable metadata, and then uses a standard retriever at inference time to retrieve a compact candidate set for the final LLM. Throughout the paper, we use \emph{skill} as the general unit of selection. A skill may be a high-level procedural capability, while a tool or API function is treated as an atomic skill.
+Toollery separates full-library search from final LLM decision-making. Figure~\ref{fig:toollery-overview} shows the overall pipeline: Toollery first generates user-intent queries for each selectable capability, then uses a standard retriever at inference time to retrieve a compact candidate set for the final LLM. Throughout the paper, we use \emph{skill} as the general unit of selection: a skill may be a high-level procedural capability, an MCP service, an atomic tool, or an API function. Toollery can retrieve either over generated user-intent queries alone or over skill/tool metadata augmented with those generated queries; the latter preserves both user-facing intent signals and developer-facing specification details.
 
 \subsection{Problem Formulation}
 \label{subsec:problem-formulation}
 
-Let $\mathcal{A}=\{a_1,\ldots,a_M\}$ denote a library of available skills. Each skill $a_i$ has a specification $s_i$, which may include a name, natural-language description, argument schema, examples, usage constraints, documentation, or longer skill instructions. Given a user request $x$, the goal is to construct a small candidate set
+Let $\mathcal{A}=\{a_1,\ldots,a_M\}$ denote the full library of available capabilities, where each capability may be a high-level skill, an MCP service, an atomic tool, or an API function. Each capability $a_i$ has a specification $s_i$, which may include its name, description, schema, instruction, usage constraints, examples, or documentation. Given a user request $x$, the goal is to construct a compact candidate set
 \begin{equation}
     \mathcal{C}_k(x)\subset\mathcal{A},\qquad |\mathcal{C}_k(x)|=k\ll M,
 \end{equation}
-that contains the skill or skills needed to satisfy the request. A downstream LLM then receives $x$ and compact specifications for only $\mathcal{C}_k(x)$, and produces the final skill decision and any required arguments.
+that contains the capability or capabilities needed to satisfy the request. The final LLM then receives $x$ and the specifications of only the candidates in $\mathcal{C}_k(x)$, and produces the final selection and any required arguments.
 
-The main difficulty is that user requests and skill specifications are written for different purposes. Users describe goals, while specifications describe capabilities, parameters, and constraints. Toollery therefore does not use skill metadata as the only searchable object. Instead, it expands each searchable skill document with generated user-like queries that describe when the skill should be selected.
+The main difficulty is the mismatch between user requests and specifications. Users describe goals, constraints, or partial tasks, while specifications describe capabilities, parameters, and usage details. Toollery addresses this mismatch by constructing a manual for the full library: a set of generated user-intent queries that describe when each capability should be selected.
 
-\subsection{Generated Query Construction}
+\subsection{Manual Construction}
 \label{subsec:intent-index}
 
-For each skill $a_i$, a generator model $G$ produces $N$ candidate intent queries from the specification:
+For each capability $a_i$, a generator model $G$ produces $N$ user-intent queries from its specification:
 \begin{equation}
     Q_i = G(s_i; N, \pi),
 \end{equation}
-where $\pi$ is a prompt that asks the generator to write plausible user requests that would require $a_i$. For atomic skills, the generator observes the tool or API name, description, and schema. For higher-level skills, the generator observes the skill name, description, and detailed instruction.
-
-Toollery then constructs a query-augmented searchable document
+where $\pi$ prompts the generator to write realistic user requests that would require $a_i$. The manual for the full library is the union of the generated user-intent queries for all capabilities:
 \begin{equation}
-    d_i = \operatorname{concat}(s_i, Q_i),
+    \mathcal{M}=\{(q,a_i): q\in Q_i,\ a_i\in\mathcal{A}\}.
 \end{equation}
-where $s_i$ is the original skill or tool metadata and $Q_i$ is the generated query set. This is the main Toollery representation used in our experiments: retrieval sees both developer-facing metadata and user-facing generated intents. Generated queries can also be used without skill/tool metadata. 
+Each manual entry stores a generated user-intent query and the identifier of the capability whose specification produced it.
 
-Because such a generated-query-only index lacks the original skill description, we further filter generated queries with a source-skill recovery check. For each generated query $q\in Q_i$, Toollery constructs a verification pool
+Toollery can optionally apply source-capability recovery filtering to remove generated user-intent queries that are not discriminative under competition. For each generated query $q\in Q_i$, Toollery constructs a verification pool
 \begin{equation}
     \mathcal{P}_{i,q}=\{a_i\}\cup\mathcal{D}_{i,q},
 \end{equation}
-where $\mathcal{D}_{i,q}\subset\mathcal{A}\setminus\{a_i\}$ is a set of random distractor skills. The verifier model $H$ receives $q$ and compact specifications for the skills in $\mathcal{P}_{i,q}$, then selects the best matching skill or abstains:
+where $\mathcal{D}_{i,q}\subset\mathcal{A}\setminus\{a_i\}$ is a set of random distractor capabilities. A verifier model $H$ receives $q$ and the specifications of capabilities in $\mathcal{P}_{i,q}$, then selects the best matching capability or abstains:
 \begin{equation}
     \hat{a}=H(q,\{s_j:a_j\in\mathcal{P}_{i,q}\}).
 \end{equation}
-Toollery retains $q$ only when the verifier recovers the source skill, $\hat{a}=a_i$. The retained intent set for skill $a_i$ is
-\begin{equation}
-    V_i=\{q\in Q_i:H(q,\{s_j:a_j\in\mathcal{P}_{i,q}\})=a_i\}.
-\end{equation}
-The generated-query-only ablation index is then
-\begin{equation}
-    \mathcal{I}=\{(v,a_i):v\in V_i,\ a_i\in\mathcal{A}\}.
-\end{equation}
+Toollery retains $q$ only when the verifier recovers the source capability, $\hat{a}=a_i$. This generation and filtering step is offline, so its cost is amortized across future requests and only affected capabilities need updates when the full library changes.
 
-Each index entry stores the retained intent text, its retrieval representation, and the identifier of its source skill. The recovery check tests whether a generated query remains discriminative under competition; because it is offline, its cost is amortized and only affected skills need updates when the library changes.
-
-
-\subsection{Retrieval}
+\subsection{Retrieval over the Manual}
 \label{subsec:retrieval-aggregation}
 
-At inference time, Toollery applies a retrieval function over the query-augmented document collection $\mathcal{D}=\{(d_i,a_i)\}_{i=1}^{M}$. This retrieval function is not tied to a specific implementation: it can be instantiated with sparse lexical retrieval such as BM25 or a RAG-style retriever. Given a user request $x$, the retriever returns the top-$k$ skills and their scores:
-\begin{equation}
-    \mathcal{C}_k(x)=\operatorname{TopK}_{(d_i,a_i)\in\mathcal{D}} f(x,d_i).
-\end{equation}
-The key design choice is therefore not the scoring function itself, but the retrieval content: Toollery can retrieves over skill/tool metadata enriched with generated user-intent queries or generated user-intent queries alone rather than over raw metadata alone.
+At inference time, Toollery retrieves candidates using the user request $x$ and the manual $\mathcal{M}$. The retriever is not tied to a specific implementation: it can be instantiated with sparse lexical retrieval such as BM25, dense retrieval, or a RAG-style retriever. Retrieval can score generated user-intent queries in the manual directly, or score specifications augmented with the corresponding user-intent queries from the manual. Both are Toollery retrieval settings because both use the manual constructed from the full library; they differ only in whether the retriever also sees the original specification text.
 
-Since multiple retrieved queries may point to the same skill, we aggregate query-level evidence by averaging the strongest retrieved query scores per skill and adding a small evidence-count bonus. This converts many query-level matches into a ranked list of unique skills; exact aggregation parameters are listed in Appendix~\ref{app:reproducibility}.
+When retrieval is performed over manual entries, multiple retrieved user-intent queries may point to the same capability. Toollery therefore aggregates query-level evidence into capability-level scores. Let $f(x,q)$ be the retrieval score between user request $x$ and a generated user-intent query $q$. Toollery ranks each capability by aggregating the strongest matching queries associated with that capability:
+\begin{equation}
+    S(x,a_i)=\operatorname{Agg}\{f(x,q): (q,a_i)\in\mathcal{M}\}.
+\end{equation}
+The candidate set is then
+\begin{equation}
+    \mathcal{C}_k(x)=\operatorname{TopK}_{a_i\in\mathcal{A}} S(x,a_i).
+\end{equation}
+In our implementation, $\operatorname{Agg}$ averages the strongest retrieved query scores for each capability and adds a small evidence-count bonus; exact aggregation parameters are listed in Appendix~\ref{app:reproducibility}.
 
 
 \subsection{Candidate Compression and Final Selection}
 \label{subsec:selection}
 
-For each selected skill, Toollery instantiates a compact specification containing the fields required by the final decision interface, such as the skill name, description, schema, and necessary usage instruction. The final LLM receives the original user request and these compact specifications, but not the generated intent queries. Retrieval therefore narrows the action space; the LLM remains responsible for resolving residual ambiguity, selecting the final skill, and filling arguments.
+For each selected capability, Toollery instantiates a compact specification containing the fields required by the LLM final decision, such as the name, description, schema, and necessary instructions. The final LLM receives the original user request and the compact specifications for only $\mathcal{C}_k(x)$; it does not receive the full library or the manual. Retrieval therefore narrows the action space, while the LLM remains responsible for resolving residual ambiguity, selecting the final capability, and filling arguments.
 
-This design changes the online cost from full-library prompting to subset prompting. If $L_s$ is the average token length of a compact skill specification, all-candidate prompting sends approximately $O(M\cdot L_s)$ skill-definition tokens to the LLM. Toollery sends approximately $O(k\cdot L_s)$ tokens, where $k\ll M$ can remain fixed as the library grows. The query-augmented retrieval index grows offline with the library, but online retrieval is substantially cheaper than expanding the LLM context over all candidates.
-
+This design changes the online cost from full-library prompting to subset prompting. Let $M$ be the number of capabilities in the full library and let $L_s$ be the average token length of a compact specification. Full-library prompting sends approximately $O(M\cdot L_s)$ specification tokens to the LLM, so prompt cost grows linearly as the library expands. Toollery instead sends only the retrieved top-$k$ specifications, approximately $O(k\cdot L_s)$ tokens, where $k$ is a deployment-time candidate budget and typically satisfies $k\ll M$. Because $k$ can remain fixed even as $M$ grows, the final LLM sees a bounded candidate set while the manual and retrieval index absorb library growth offline.
 
 \begin{table*}[t]
 \centering
@@ -239,9 +229,9 @@ This design changes the online cost from full-library prompting to subset prompt
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{llccccccc}
 \hline
-\textbf{Setting} &
-\textbf{Method} &
-\textbf{Avg ms/query} &
+\textbf{Retrieval Setting} &
+\textbf{Retriever} &
+\textbf{Online ms/query} &
 \textbf{Hit@1} &
 \textbf{Recall@10} &
 \textbf{Recall@50} &
@@ -249,44 +239,41 @@ This design changes the online cost from full-library prompting to subset prompt
 \textbf{nDCG@10} &
 \textbf{FullCoverage@10} \\
 \hline
-Raw metadata & BM25 & 309.4 & .553 & .571 & .726 & .625 & .512 & .413 \\
-Raw metadata & RAGAnything & 38210.6 & .600 & .568 & .712 & .663 & .500 & .393 \\
-Raw metadata & SkillRouter$^\dagger$ & -- & .740 & .704 & -- & .791 & -- & .520 \\
+Raw specification & BM25 & 309.4 & 0.553 & 0.571 & 0.726 & 0.625 & 0.512 & 0.413 \\
+Raw specification & RAGAnything & 38210.6 & 0.600 & 0.568 & 0.712 & 0.663 & 0.500 & 0.393 \\
+Raw specification & SkillRouter$^\dagger$ & -- & 0.740 & 0.704 & -- & 0.791 & -- & 0.520 \\
 \hline
-Toollery (intent only)& BM25 & \textbf{218.9} & .840 & .880 & .951 & .881 & .846 & .760 \\
-Toollery (intent only)& RAGAnything & 21505.9 & .900 & .922 & .953 & .925 & \textbf{.882} & .827 \\
+Toollery (manual only) & BM25 & \textbf{218.9} & 0.840 & 0.880 & 0.951 & 0.881 & 0.846 & 0.760 \\
+Toollery (manual only) & RAGAnything & 21505.9 & 0.900 & 0.922 & 0.953 & 0.925 & \textbf{0.882} & 0.827 \\
 \hline
-Toollery (intent + metadata)& BM25 & 623.0 & .920 & \textbf{.942} & \textbf{.968} & .942 & .880 & \textbf{.853} \\
-Toollery (intent + metadata)& RAGAnything & 41070.5 & \textbf{.933} & .900 & .950 & \textbf{.943} & .843 & .827 \\
+Toollery (manual + specification) & BM25 & 623.0 & 0.920 & \textbf{0.942} & \textbf{0.968} & 0.942 & 0.880 & \textbf{0.853} \\
+Toollery (manual + specification) & RAGAnything & 41070.5 & \textbf{0.933} & 0.900 & 0.950 & \textbf{0.943} & 0.843 & 0.827 \\
 \hline
 \end{tabular}
 }
-\caption{SkillsBench dataset retrieval results, all values are reported as the average of the easy and hard splits. Toollery retrieves over metadata plus generated user-intent queries; Generated query only retrieves over retained generated queries without metadata.}
+\caption{SkillsBench retrieval over roughly 79K skills, averaged over the easy and hard splits. Raw specification retrieves from original skill specifications only. Full-library prompting at this scale would require roughly 43.1M input tokens per request; Toollery top-10 prompting requires roughly 27.7K tokens, over three orders of magnitude smaller. $^\dagger$ denotes the SkillRouter reference using SR-Emb-0.6B $\times$ SR-Rank-0.6B.}
 \label{tab:skillrouter-skillbench-results}
 \end{table*}
+
 
 \section{Experiments}
 
 \label{sec:experiments}
 
-We evaluate Toollery as a candidate-compression layer for skill selection. The experiments ask three questions. First, can query-augmented metadata retrieval recover the correct skills from large skill libraries? Second, do generated user intents also help when the skills are atomic API-style tools? Third, after retrieval, does candidate compression improve end-to-end LLM tool selection as the candidate pool grows?
+We evaluate Toollery as a candidate-compression layer for scalable capability selection. The experiments ask three questions. First, can Toollery recover the correct capabilities from large libraries while keeping the online candidate set bounded? Second, does the same manual-based retrieval design transfer from high-level skills to atomic API-style tools? Third, after retrieval, does candidate compression improve end-to-end LLM tool selection as the candidate pool grows?
 
 \subsection{Experimental Setup}
 \label{subsec:experimental-setup}
 
 \paragraph{Benchmarks.}
-We use two public retrieval-focused tracks and one end-to-end selection track. The first retrieval track follows SkillsBench dataset skill routing \citep{li2026skillsbench, zheng2026skillrouter}, where each user request is evaluated against roughly 79K candidate skills. The second retrieval track uses BFCL-V4 non-live and live multiple instances and evaluates each request against the complete candidate pool \citep{patil2024gorilla}, treating each tool/API as an atomic skill. We also include a deployment-facing automotive retrieval study on company-internal real user requests over a 220-intent vehicle-control pool. This internal dataset is proprietary production data and is not released. The end-to-end track evaluates final LLM selection after candidate compression on BFCL-V4 non-live and live multiple settings under increasing candidate-pool sizes.
-
+We evaluate Toollery on two public benchmarks and one proprietary industrial dataset. The first public benchmark is SkillsBench \citep{li2026skillsbench, zheng2026skillrouter}, which contains 75 evaluation queries: 24 single-skill queries and 51 multi-skill queries. Each user request is evaluated against an \textasciitilde{}79K-skill pool. The second public benchmark is BFCL-V4 \citep{patil2024gorilla}. We use its non-live and live multiple-tool instances and evaluate each request against the complete candidate pool, treating each tool or API function as an atomic capability. Finally, we evaluate on a proprietary vehicle-control dataset with 3,396 real user requests over a 220-intent production pool. Half of the requests contain two gold intents, and the other half contain three gold intents.
 
 \paragraph{Settings and baselines.}
-We compare three information settings. \emph{Raw metadata} retrieves only from the original skill or tool fields. \emph{Toollery (intent only)} retrieves from generated user-intent queries without the original metadata. \emph{Toollery (intent + metadata)}, appends the generated user-intent queries to each searchable skill or tool document and retrieves over the combined metadata-plus-query representation. Within these settings, we instantiate retrieval with BM25 or RAGAnything retrieval. Our dense retrieval implementation shares the same embedding-based scoring path and produced redundant quality values with RAGAnything in the public benchmark runs, so the main public tables report RAGAnything and omit separate dense rows. For the internal automotive study, we additionally report dense retrieval and a lightweight decomposed-query variant that splits multi-intent user requests into atomic subqueries before retrieval and merges the resulting candidate lists.
+We compare retrieval settings that differ in what information is available to the retriever. \emph{Raw specification} retrieves only from the original skill/tool specifications and does not use Toollery's manual. Toollery first constructs a manual for the full library, where the manual contains generated user-intent queries for each capability. We evaluate two ways to retrieve with this manual: \emph{Toollery (manual only)} retrieves from the manual alone, while \emph{Toollery (manual + specification)} retrieves from specifications augmented with the corresponding user-intent queries in the manual. Both are Toollery settings because both use the generated manual; they differ only in whether the retriever also sees the original specification text. Within these settings, we instantiate retrieval with BM25 or RAGAnything.
 
-\paragraph{Metrics.}
-For retrieval, we report Hit@1, Recall@10, Recall@50, MRR@10, nDCG@10, and FullCoverage@10. Hit@1 measures whether the top-ranked candidate is correct. Recall@10/50 measure whether gold skills appear in the retrieved candidate set. Mean Reciprocal Rank MRR@10 rewards methods that rank the first correct skill earlier in the top 10, while normalized Discounted Cumulative Gain nDCG@10 evaluates the quality of the whole top-10 ranking with higher weight on earlier positions. FullCoverage@10 requires all gold skills for multi-skill requests to appear in the top 10. For the internal automotive multi-intent study, we additionally report Recall@20 to measure intermediate candidate-set coverage. For atomic-tool tasks with a single gold tool, Recall@$k$ reduces to Hit@$k$. For end-to-end experiments, we report each benchmark's final selection accuracy after the final LLM chooses from the retrieved subset.
+\paragraph{Metrics and cost.}
+For retrieval, we report Hit@1, Recall@10, Recall@50, MRR@10, nDCG@10, FullCoverage@10, and online retrieval latency as Avg ms/query. Hit@1 measures whether the top-ranked candidate is correct. Recall@10/50 measure whether gold capabilities appear in the retrieved candidate set. MRR@10 rewards methods that rank the first correct capability earlier in the top 10, while nDCG@10 evaluates the quality of the whole top-10 ranking with higher weight on earlier positions. FullCoverage@10 requires all gold capabilities for multi-capability requests to appear in the top 10. For the proprietary vehicle-control dataset, we additionally report Recall@20 to measure intermediate candidate-set coverage. For end-to-end experiments, we report final selection accuracy after the final LLM chooses from the retrieved subset. We report the offline manual construction protocol and cost in Appendix~\ref{app:reproducibility}; using official DeepSeek-V4-Pro prices as of June 9, 2026,\footnote{\url{https://api-docs.deepseek.com/quick_start/pricing}, accessed June 9, 2026.} construction costs approximately \$0.22 per 100 skills on average. In the main tables, we report online retrieval latency as Avg ms/query to characterize the serving-time cost of candidate compression.
 
-\paragraph{Efficiency.}
-
-Candidate compression should improve both selection quality and serving cost. Tables~\ref{tab:skillrouter-skillbench-results},~\ref{tab:atomic-tool-results},~\ref{tab:atomic-tool-results-bfcl-nonlive}, and~\ref{tab:internal-car-results} therefore include online retrieval latency as Avg ms/query. These timings exclude offline intent generation, verification, and index construction. We report the detailed reproducibility protocol and offline construction cost in Appendix~\ref{app:reproducibility}; with DeepSeek-V4-Pro pricing, offline query construction costs approximately \$0.22 per 100 skills on average.
 
 \begin{table*}[t]
 \centering
@@ -294,9 +281,9 @@ Candidate compression should improve both selection quality and serving cost. Ta
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{llccccccc}
 \hline
-\textbf{Setting} &
-\textbf{Method} &
-\textbf{Avg ms/query} &
+\textbf{Retrieval Setting} &
+\textbf{Retriever} &
+\textbf{Online ms/query} &
 \textbf{Hit@1} &
 \textbf{Recall@10} &
 \textbf{Recall@50} &
@@ -304,30 +291,32 @@ Candidate compression should improve both selection quality and serving cost. Ta
 \textbf{nDCG@10} &
 \textbf{FullCoverage@10} \\
 \hline
-Raw metadata & BM25 & 3.6 & .643 & .931 & .976 & .744 & .790 & .931 \\
-Raw metadata & RAGAnything & 152.5 & .737 & .976 & .995 & .831 & .867 & .976 \\
+Raw specification & BM25 & 3.6 & 0.643 & 0.931 & 0.976 & 0.744 & 0.790 & 0.931 \\
+Raw specification & RAGAnything & 152.5 & 0.737 & 0.976 & 0.995 & 0.831 & 0.867 & 0.976 \\
 \hline
-Toollery (intent only)& BM25 & \textbf{0.3} & .468 & .822 & .934 & .584 & .642 & .822 \\
-Toollery (intent only)& RAGAnything & 81.8 & .543 & .855 & .929 & .653 & .702 & .855 \\
+Toollery (manual only) & BM25 & \textbf{0.3} & 0.468 & 0.822 & 0.934 & 0.584 & 0.642 & 0.822 \\
+Toollery (manual only) & RAGAnything & 81.8 & 0.543 & 0.855 & 0.929 & 0.653 & 0.702 & 0.855 \\
 \hline
-Toollery (intent + metadata)& BM25 & 5.0 & .731 & .948 & .986 & .811 & .845 & .948 \\
-Toollery (intent + metadata)& RAGAnything & 139.7 & \textbf{.776} & \textbf{.980} & \textbf{.997} & \textbf{.856} & \textbf{.887} & \textbf{.980} \\
+Toollery (manual + specification) & BM25 & 5.0 & 0.731 & 0.948 & 0.986 & 0.811 & 0.845 & 0.948 \\
+Toollery (manual + specification) & RAGAnything & 139.7 & \textbf{0.776} & \textbf{0.980} & \textbf{0.997} & \textbf{0.856} & \textbf{0.887} & \textbf{0.980} \\
 \hline
 \end{tabular}
 }
-\caption{Atomic skill/tool retrieval quality on BFCL-live multiple full-pool instances, where each original query is evaluated against the complete 457-tool candidate pool \citep{patil2024gorilla}. Toollery (intent + metadata) retrieves over metadata plus generated user-intent queries; Toollery (intent only) retrieves over retained generated queries without metadata. }
+\caption{BFCL-V4 live multiple retrieval over the complete 457-tool pool.}
 \label{tab:atomic-tool-results}
 \end{table*}
 
+
+
 \begin{table*}[t]
 \centering
 \small
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{llccccccc}
 \hline
-\textbf{Setting} &
-\textbf{Method} &
-\textbf{Avg ms/query} &
+\textbf{Retrieval Setting} &
+\textbf{Retriever} &
+\textbf{Online ms/query} &
 \textbf{Hit@1} &
 \textbf{Recall@10} &
 \textbf{Recall@50} &
@@ -335,20 +324,52 @@ Toollery (intent + metadata)& RAGAnything & 139.7 & \textbf{.776} & \textbf{.980
 \textbf{nDCG@10} &
 \textbf{FullCoverage@10} \\
 \hline
-Raw metadata & BM25 & 14.4 & .780 & .970 & .995 & .854 & .883 & .970 \\
-Raw metadata & RAGAnything & 524.6 & .825 & \textbf{1.000} & \textbf{1.000} & .895 & .922 & \textbf{1.000} \\
+Raw specification & BM25 & 14.4 & 0.780 & 0.970 & 0.995 & 0.854 & 0.883 & 0.970 \\
+Raw specification & RAGAnything & 524.6 & 0.825 & \textbf{1.000} & \textbf{1.000} & 0.895 & 0.922 & \textbf{1.000} \\
 \hline
-Toollery (intent only)& BM25 & \textbf{0.2} & .555 & .885 & .990 & .668 & .721 & .885 \\
-Toollery (intent only)& RAGAnything & 77.9 & .605 & .925 & .985 & .722 & .772 & .925 \\
+Toollery (manual only) & BM25 & \textbf{0.2} & 0.555 & 0.885 & 0.990 & 0.668 & 0.721 & 0.885 \\
+Toollery (manual only) & RAGAnything & 77.9 & 0.605 & 0.925 & 0.985 & 0.722 & 0.772 & 0.925 \\
 \hline
-Toollery (intent + metadata)& BM25 & 25.9 & .815 & \textbf{1.000} & \textbf{1.000} & .887 & .915 & \textbf{1.000} \\
-Toollery (intent + metadata)& RAGAnything & 657.3 & \textbf{.845} & \textbf{1.000} & \textbf{1.000} & \textbf{.904} & \textbf{.928} & \textbf{1.000} \\
+Toollery (manual + specification) & BM25 & 25.9 & 0.815 & \textbf{1.000} & \textbf{1.000} & 0.887 & 0.915 & \textbf{1.000} \\
+Toollery (manual + specification) & RAGAnything & 657.3 & \textbf{0.845} & \textbf{1.000} & \textbf{1.000} & \textbf{0.904} & \textbf{0.928} & \textbf{1.000} \\
 \hline
 \end{tabular}
 }
-\caption{Atomic skill/tool retrieval quality on BFCL non-live multiple full-pool instances, where each original query is evaluated against the complete 443-tool candidate pool \citep{patil2024gorilla}. Toollery (intent + metadata) retrieves over metadata plus generated user-intent queries; Toollery (intent only) retrieves over retained generated queries without metadata.}
+\caption{BFCL-V4 non-live multiple retrieval over the complete 443-tool pool.}
 \label{tab:atomic-tool-results-bfcl-nonlive}
 \end{table*}
+
+
+
+\begin{table}[t]
+\centering
+\small
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{llcccc}
+\hline
+\textbf{Dataset} &
+\textbf{Selection Setting} &
+\textbf{\# Candidates} &
+\textbf{Input Tokens} &
+\textbf{Latency} &
+\textbf{Accuracy} \\
+\hline
+live &
+Full-library prompt & 457 & 84.1K & 11.8s & 0.770 \\
+live &
+Toollery & 10 & 2.1K & 1.6s & 0.831 \\
+\hline
+non-live &
+Full-library prompt & 443 & 57.0K & 8.4s & 0.703 \\
+non-live &
+Toollery & 10 & 1.3K & 1.5s & 0.814 \\
+\hline
+\end{tabular}
+}
+\caption{BFCL-V4 end-to-end selection under full-library prompting and Toollery candidate compression. Full-library prompting exposes all tool specifications to the final LLM, while Toollery exposes only the retrieved top-10 candidate specifications. Accuracy is measured with DeepSeek V3.2 as the final selector.}
+\label{tab:atomic-tool-cost}
+\end{table}
+
 
 \begin{table*}[t]
 \centering
@@ -356,9 +377,9 @@ Toollery (intent + metadata)& RAGAnything & 657.3 & \textbf{.845} & \textbf{1.00
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{llcccccccc}
 \hline
-\textbf{Setting} &
-\textbf{Method} &
-\textbf{Avg ms/query} &
+\textbf{Retrieval Setting} &
+\textbf{Retriever} &
+\textbf{Online ms/query} &
 \textbf{Hit@1} &
 \textbf{Recall@10} &
 \textbf{Recall@20} &
@@ -367,68 +388,62 @@ Toollery (intent + metadata)& RAGAnything & 657.3 & \textbf{.845} & \textbf{1.00
 \textbf{nDCG@10} &
 \textbf{FullCoverage@10} \\
 \hline
-Raw metadata & BM25 & 6.4 & .430 & .545 & .696 & .867 & .576 & .446 & .224 \\
-Raw metadata & Dense & 144.5 & .408 & .582 & .718 & .871 & .588 & .464 & .229 \\
+Raw specification & BM25 & 6.4 & 0.430 & 0.545 & 0.696 & 0.867 & 0.576 & 0.446 & 0.224 \\
+Raw specification & RAGAnything & 144.5 & 0.408 & 0.582 & 0.718 & 0.871 & 0.588 & 0.464 & 0.229 \\
 \hline
-Toollery (intent only)& BM25 & 0.8 & .511 & .650 & .769 & .918 & .662 & .536 & .322 \\
-Toollery (intent only)& Dense & 102.6 & .414 & .604 & .731 & .883 & .597 & .478 & .253 \\
+Toollery (manual only) & BM25 & \textbf{0.7} & 0.481 & 0.670 & 0.784 & 0.918 & 0.648 & 0.544 & 0.358 \\
+Toollery (manual only) & RAGAnything & 221.6 & 0.453 & 0.666 & 0.781 & 0.902 & 0.633 & 0.538 & 0.357 \\
 \hline
-Toollery (intent + metadata)& BM25 & 39.9 & \textbf{.516} & .662 & .792 & .924 & \textbf{.670} & .542 & .344 \\
-Toollery (intent + metadata)& Dense & 256.0 & .385 & .575 & .710 & .872 & .568 & .453 & .228 \\
-\hline
-Decomposed Toollery (intent only)& BM25 & \textbf{0.7} & .481 & .670 & .784 & .918 & .648 & .544 & .358 \\
-Decomposed Toollery (intent only)& Dense & 221.6 & .453 & .666 & .781 & .902 & .633 & .538 & .357 \\
-Decomposed Toollery (intent + metadata)& BM25 & 69.7 & .484 & \textbf{.684} & \textbf{.803} & \textbf{.926} & .654 & \textbf{.553} & \textbf{.381} \\
-Decomposed Toollery (intent + metadata)& RAGAnything & 253.4 & .403 & .630 & .758 & .893 & .591 & .500 & .316 \\
+Toollery (manual + specification) & BM25 & 69.7 & 0.484 & \textbf{0.684} & \textbf{0.803} & \textbf{0.926} & 0.654 & \textbf{0.553} & \textbf{0.381} \\
+Toollery (manual + specification) & RAGAnything & 253.4 & 0.403 & 0.630 & 0.758 & 0.893 & 0.591 & 0.500 & 0.316 \\
 \hline
 \end{tabular}
 }
-\caption{Internal automotive multi-intent retrieval over a complete 220-intent vehicle-control pool. Results are averaged over 3,396 real company-internal requests that contain two or three gold intents; the proprietary dataset is used only for this deployment-facing evaluation and is not released. Decomposed Toollery first splits each multi-intent request into atomic subqueries, retrieves for each subquery, and merges the candidate lists.}
+
+\caption{Proprietary vehicle-control retrieval over the complete 220-intent pool. Results are averaged over 3,396 real company-internal requests with two or three gold intents. Full-library prompting over this 220-intent library would require roughly 35K input tokens per request, which is feasible in terms of the context window limit but still much larger than a top-10 Toollery prompt. The proprietary dataset is used only for deployment-facing evaluation and is not released.}
 \label{tab:internal-car-results}
 \end{table*}
 
-\subsection{Skill Routing over Large Skill Pools}
+
+\subsection{Skill Retrieval on SkillsBench}
 \label{subsec:skill-routing-results}
 
-The experiment on SkillsBench dataset tests the main claim of Toollery: generated user-intent queries should improve retrieval from a large skill library while keeping the candidate set compact. Table~\ref{tab:skillrouter-skillbench-results} reports retrieval quality averaged over the easy and hard splits. Toollery (intent + metadata) with BM25 reaches .920 Hit@1, .942 Recall@10, .968 Recall@50, .942 MRR@10, .880 nDCG@10, and .853 FullCoverage@10 over roughly 79K-skill pools, substantially improving over our locally run raw-metadata baselines and the SkillRouter reulsts using its SR-Emb-0.6B × SR-Rank-0.6B \citep{zheng2026skillrouter}.
+The SkillsBench experiment tests Toollery at the scale where full-library prompting is no longer a feasible serving strategy. Prompting the final LLM with the full \textasciitilde{}79K-skill library would require roughly 43M input tokens per request, while Toollery top-10 prompting requires about 27.7K tokens, over three orders of magnitude smaller. The practical question is therefore whether retrieval can compress this full library into a small candidate set without losing the needed capabilities. Table~\ref{tab:skillrouter-skillbench-results} reports retrieval quality averaged over the easy and hard splits.
 
-The comparison also separates the value of generated intents from the value of retaining original metadata. Toollery (intent only) retrieval is strong, especially with RAGAnything, showing that generated user-intent queries are useful by themselves. Toollery BM25 is stronger on most retrieval metrics because the generated queries and original metadata provide complementary evidence.
+Toollery substantially improves this large-library retrieval step. With BM25, Toollery (manual + specification) improves Hit@1 from 0.553 to 0.920, Recall@10 from 0.571 to 0.942, and FullCoverage@10 from 0.413 to 0.853 over raw specification retrieval. This result supports the core claim that Toollery-based candidate compression can recover the needed capabilities from a very large library before final LLM decision-making. The latency column reports retrieval time only; with BM25, Toollery performs this \textasciitilde{}79K-skill candidate compression in 623.0 ms/query.
 
+The comparison also clarifies the role of the manual. Toollery (manual only) is already strong, showing that generated user-intent queries are useful retrieval targets by themselves. Toollery (manual + specification) further improves most metrics because the retriever can use both user-facing intent signals from the manual and developer-facing details from the original specifications.
 
-\subsection{Atomic-Skill Retrieval on BFCL}
+\subsection{Atomic-Tool Retrieval and End-to-End Selection on BFCL-V4}
 \label{subsec:atomic-retrieval-results}
 
-The BFCL tracks test whether generated user intents transfer from higher-level skill routing to atomic API-style selection. Table~\ref{tab:atomic-tool-results} evaluates each original BFCL-live multiple request against the complete 457-tool pool, while Table~\ref{tab:atomic-tool-results-bfcl-nonlive} repeats the same protocol on BFCL non-live multiple over the complete 443-tool pool. In the live setting, Toollery (intent + metadata) with RAGAnything is especially effective, reaching .776 Hit@1, .980 Recall@10, .997 Recall@50, .856 MRR@10, .887 nDCG@10, and .980 FullCoverage@10. In the non-live setting, Toollery (intent + metadata) with RAGAnything reaches .845 Hit@1, 1.000 Recall@10, and 1.000 Recall@50.
+The BFCL-V4 experiments test whether the same Toollery design transfers from high-level skills to atomic tools and API functions, and whether candidate compression improves the final LLM selection step. Tables~\ref{tab:atomic-tool-results} and~\ref{tab:atomic-tool-results-bfcl-nonlive} evaluate retrieval over the complete BFCL-live 457-tool pool and BFCL non-live 443-tool pool, respectively. Unlike SkillsBench, exceeding the context window limit, full-library prompting for BFCL-V4 dataset is feasible, which lets us compare Toollery with prompting over all candidate tool specifications.
 
-Toollery (intent only) retrieval is weaker in these atomic-tool settings, while raw metadata retrieval is already strong because tool schemas and descriptions are short and specific. This result sharpens the scope of the paper: the transferable signal is the generated user-intent representation, but for short schema-like atomic tools it works best when attached to the original tool document rather than isolated in a generated-query-only index. In the corresponding live top-3 efficiency values, Toollery (intent + metadata) with RAGAnything uses 653.5 prompt tokens on average, takes 139.7 ms/query latency, and reaches .776 top 1 hit. Toollery (intent + metadata) with BM25 is faster at 5.0 ms/query and reaches .731 top 1 hit. We therefore treat Tables~\ref{tab:atomic-tool-results} and~\ref{tab:atomic-tool-results-bfcl-nonlive} as evidence that generated intents help atomic skills while retrieval backend choice remains an important deployment ablation.
+Toollery remains effective in this atomic-tool setting. On BFCL-live, Toollery (manual + specification) with RAGAnything reaches 0.776 Hit@1 and 0.980 Recall@10. On BFCL non-live, it reaches 0.845 Hit@1 and 1.000 Recall@10. Raw specification retrieval is already strong because tool specifications are short and structured, but Toollery still improves top-$k$ recall by adding user-intent signals from the manual. This matters because the final LLM can only select the correct tool if retrieval keeps that tool inside the compact candidate set.
 
-\subsection{Internal Automotive Multi-Intent Retrieval}
+Table~\ref{tab:atomic-tool-cost} reports BFCL-V4 end-to-end selection using DeepSeek V3.2 and shows this retrieval improvement translates into a better end-to-end serving tradeoff. On BFCL-live, full-library prompting exposes all 457 tool specifications to the final LLM, requiring 84.1K input tokens and 11.8 seconds of latency with 0.770 accuracy. Toollery exposes only 10 retrieved specifications, reducing input tokens to 2.1K and latency to 1.6 seconds, while improving accuracy to 0.831. On BFCL non-live, Toollery similarly reduces input tokens from 57.0K to 1.3K and latency from 8.4 seconds to 1.5 seconds, while improving accuracy from 0.703 to 0.814.
+
+These results directly support the candidate-compression view of Toollery. Full-library prompting makes the final LLM pay for every available tool specification and exposes it to more distractors. Toollery instead keeps online selection bounded: the manual and retrieval index absorb capabilities library growth offline, while the final LLM receives only a compact top-$k$ set of candidate specifications.
+
+\subsection{Multi-Intent Retrieval on Proprietary Dataset}
 \label{subsec:internal-car-results}
 
-To test whether the same retrieval design transfers to a production-style Chinese multi-intent setting, we evaluate on a company-internal vehicle-control dataset. Each request is a real user utterance mapped to one or more gold vehicle-control intents, and retrieval is performed over the complete 220-intent pool. Because the data comes from proprietary internal systems, we use it only as a deployment-facing validation set and do not release the requests or intent annotations. Table~\ref{tab:internal-car-results} reports the subset of 3,396 requests with two or three gold intents, where candidate-set coverage is more informative than single top-1 accuracy.
+The proprietary vehicle-control dataset tests Toollery in a production-style multi-intent setting. Each request is a real user request mapped to two or three gold vehicle-control intents, and retrieval is performed over a complete 220-intent pool. Full-library prompting over this pool would require roughly 35K input tokens per request. This is feasible for some long-context models, but it is still much larger than a top-10 Toollery prompt and would be paid on every request. Toollery reduces this to about 1.9K tokens with top-10 candidates; even with top-50 candidates, the prompt remains about 9.1K tokens.
 
-The automotive results show two patterns. First, generated intents improve sparse retrieval substantially: Toollery (intent + metadata) with BM25 improves over raw BM25 from .545 to .662 Recall@10 and from .867 to .924 Recall@50. Second, decomposing a multi-intent request into atomic subqueries improves candidate-set coverage further. Decomposed Toollery (intent + metadata) with BM25 obtains the best Recall@10 (.684), Recall@20 (.803), Recall@50 (.926), nDCG@10 (.553), and FullCoverage@10 (.381), while the non-decomposed BM25 variant keeps the best Hit@1 and MRR@10. This tradeoff is expected in multi-intent retrieval: decomposition broadens coverage across sub-intents, which is valuable for passing a compact but complete candidate set to the downstream selector, but it can move the first correct candidate lower in the merged ranking. The intent-only BM25 variant remains especially cheap at 0.7 ms/query after decomposition, suggesting that generated user intents can provide a practical low-latency retrieval layer for production skill libraries.
-
-
-
-\subsection{End-to-End Selection under Candidate-Pool Growth}
-\label{subsec:end-to-end-results}
-
-Retrieval quality matters because the final LLM only succeeds if the correct skill remains in the compressed candidate set. We therefore evaluate end-to-end atomic-tool selection after candidate compression on BFCL-V4 non-live and live multiple tasks, with detailed results reported in Appendix~\ref{app:end-to-end-results}. The non-live setting provides a controlled multiple-tool benchmark, while BFCL-live is closer to deployment: the candidate pool consists of live API-style tools, the final model must select from realistic schemas rather than benchmark-only skill names, and the all-candidate prompt can become an infeasible serving configuration as the pool grows.
-
-Tables~\ref{bfclResult-toollery} and~\ref{bfcl_live_Result} show that Toollery is most useful when the candidate pool is large. With small pools, the all-candidate prompt is still manageable and Toollery can occasionally remove useful context. At larger scales, however, Toollery consistently improves final selection: on BFCL-V4 non-live multiple at the complete 443-tool scale, Qwen3-235B function calling improves from 79.13 to 94.00; on BFCL-V4 live multiple at the complete 457-tool scale, it improves from 81.13 to 88.63. These results support the candidate-compression view of Toollery: as the available tool library grows, reducing the action space before final LLM selection stabilizes tool-choice accuracy and avoids prompting the model with impractically large candidate sets.
-
+Table~\ref{tab:internal-car-results} shows that Toollery improves candidate-set coverage for real multi-intent requests. Compared with raw BM25 specification retrieval, Toollery improves Recall@10 from 0.545 to 0.662 and Recall@50 from 0.867 to 0.924. With query decomposition, Toollery further improves Recall@10 to 0.684, Recall@20 to 0.803, Recall@50 to 0.926, and FullCoverage@10 to 0.381. These gains are important because multi-intent requests require the compressed candidate set to preserve more than one correct capability. The result suggests that Toollery can reduce the prompt size of a production capability library while still keeping the candidate set complete enough for downstream multi-intent selection.
 
 \section{Discussion and Conclusion}
 \label{sec:discussion_conclusion}
 
-Toollery is best understood as a candidate-compression layer for large skill libraries. It is not a replacement for trained function-calling models, a universal skill router, or a generic RAG system over tool documentation. It moves part of semantic matching offline by converting skill specifications into user-intent queries and attaching those queries to searchable skill or tool metadata before final LLM decision making.
+The experiments show that full-library prompting quickly becomes a poor serving strategy as capability libraries grow. At SkillsBench scale, it is infeasible: prompting over the full \textasciitilde{}79K-skill library would require roughly 43.1M input tokens for every request. Even at smaller scales, the cost remains substantial: BFCL-V4 requires 57.0K-84.1K input tokens and 8.4-11.8 seconds of latency over 443-457 tools, while the proprietary 220-intent vehicle-control pool still requires roughly 35.2K input tokens. The deployment pressure is therefore structural: full-library prompting makes the final LLM pay for every available capability on every request, including trivial or irrelevant ones.
 
-The main industry lesson is that generated queries are most useful when they remain connected to the original metadata. Raw metadata can miss user phrasing, while generated-query-only retrieval can lose schema and capability details that distinguish similar tools. Query-augmented metadata retrieval combines both signals, and the choice between BM25 and RAGAnything becomes a deployment ablation: BM25 is often cheaper and strong on large skill pools, while RAGAnything is stronger on the BFCL-live atomic-tool pool.
+Toollery addresses this bottleneck by moving semantic matching out of the final prompt and into offline manual construction plus online retrieval. Across all three settings, Toollery keeps final selection bounded to a compact top-$k$ candidate set: SkillsBench drops from roughly 43.1M full-library tokens to 27.7K top-10 tokens; BFCL-V4 drops from 84.1K to 2.1K tokens on live multiple and from 57.0K to 1.3K on non-live multiple; and the proprietary dataset drops from 35.2K to 1.9K top-10 tokens. On BFCL-V4, these token reductions also translate into latency reductions from 11.8s to 1.6s and from 8.4s to 1.5s. 
 
-The second lesson is operational. Toollery moves work from online prompting to offline index maintenance: new or modified skills require query generation and insertion into the retrieval index. This cost is amortized when skill libraries are reused across many requests, but rapidly changing registries should update only affected skills and monitor zero-query or low-confidence skills. At serving time, a production system can start with a small candidate budget and expand $k$ or fall back to a broader retriever when retrieval confidence is low.
+The accuracy results show that Toollery does not buy efficiency by sacrificing selection quality. Manual-based retrieval improves over raw specification retrieval across SkillsBench, BFCL-V4, and the proprietary multi-intent dataset, and improves candidate-set coverage for multi-capability requests. In BFCL-V4 end-to-end selection, Toollery also improves final tool-selection accuracy over full-library prompting, suggesting that candidate compression reduces distractors as well as prompt cost and latency.
 
-This positioning makes Toollery complementary to existing routers and selectors. A deployment can use BM25 or RAG retrieval over query-augmented skill documents, then pass the retrieved candidate set to a function-calling model, a reranker, or a SkillRouter-style pipeline. The final LLM still performs schema-aware selection and argument generation; Toollery reduces the search space that the final model must consider.
+Taken together, these results suggest a different design principle for scalable agents: skill/tool selection should not be implemented as prompt engineering over an ever-growing full library. The final LLM should not pay the token, latency, and distractor cost of every available capability on every request. Instead, large-library selection should include an intermediate candidate-compression layer. Toollery instantiates this principle by constructing a manual from capability specifications offline, retrieving a compact candidate set online, and letting the final LLM perform schema-aware decision-making only over retrieved specifications. Because this interface is retrieval-based, Toollery remains compatible with different retrievers and different final LLMs, while applying to high-level skills, MCP services, atomic tools, and API functions under the same capability abstraction.
+
+The remaining deployment tradeoff is where to pay the semantic matching cost. Toollery moves part of this cost to offline manual construction, which must be updated when capabilities are added or changed. This cost is amortized across future requests, while the savings in final-prompt tokens and latency occur on every online request. For large and evolving agent systems, this is the favorable side of the tradeoff: the library can grow offline, while online selection remains bounded. Overall, Toollery turns large-library skill/tool selection from an unbounded full-prompting problem into a practical retrieval-and-selection pipeline.
 
 \newpage
 \section{Limitations}

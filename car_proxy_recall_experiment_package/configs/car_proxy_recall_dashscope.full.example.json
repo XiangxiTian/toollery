@@ -1,0 +1,22 @@
+{
+  "car_proxy_recall": {
+    "samples": "data/car_multintent_samples.jsonl",
+    "proxy_queries": "data/car_tools_proxy_queries.jsonl",
+    "out": "outputs/car_proxy_recall_dashscope/full_predictions.jsonl",
+    "summary_out": "outputs/car_proxy_recall_dashscope/full_summary.json",
+    "methods": ["bm25", "llm"],
+    "top_k": 50,
+    "bm25_proxy_top_k": 200,
+    "limit_samples": null,
+    "embedding_cache": "outputs/car_proxy_recall_dashscope/proxy_query_embeddings.jsonl",
+    "force_rebuild_embeddings": false
+  },
+  "embedding": {
+    "api_key": "PASTE_YOUR_API_KEY_HERE",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "text-embedding-v4",
+    "batch_size": 10,
+    "timeout": 120,
+    "max_retries": 1
+  }
+}

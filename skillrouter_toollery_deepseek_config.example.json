@@ -1,13 +1,11 @@
 {
   "deepseek": {
-    "api_key_env": "DASHSCOPE_API_KEY",
-    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "model": "qwen3-max",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-v4-pro",
     "timeout": 120,
     "extra_body": {
-      "thinking": {
-        "type": "disabled"
-      }
+      "thinking": { "type": "disabled" }
     }
   },
   "embedding": {

@@ -1,0 +1,25 @@
+{
+  "llm": {
+    "api_key_env": "LLM_API_KEY",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-v4-pro",
+    "timeout": 120,
+    "extra_body": {
+      "thinking": {
+        "type": "disabled"
+      }
+    }
+  },
+  "car_tool_generated_queries": {
+    "tools": "outputs/car_tools/car_tools_bfcl.json",
+    "proxy_queries_per_tool": 3,
+    "verify_proxies": false,
+    "verifier_distractors": 8,
+    "llm_workers": 4,
+    "llm_batch_size": 4,
+    "llm_max_retries": 3,
+    "llm_retry_sleep": 1.0,
+    "seed": 31,
+    "force_rebuild": false
+  }
+}
